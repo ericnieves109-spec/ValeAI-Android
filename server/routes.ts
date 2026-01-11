@@ -1,158 +1,161 @@
 import { Router } from "express";
 import { db } from "./db";
-import { v4 as uuidv4 } from "uuid";
+import { InyeccionGemini25 } from "./extraccion";
 
 const router = Router();
 
-// Get all knowledge
-router.get("/api/conocimiento", async (req, res) => {
+// Ejecutar carga inicial de Gemini 2.5
+router.post("/api/gemini/cargar", async (req, res) => {
   try {
-    const conocimiento = await db
-      .selectFrom("conocimientoIA")
-      .selectAll()
-      .orderBy("fecha_agregado", "desc")
-      .execute();
-    
-    console.log(`Retrieved ${conocimiento.length} knowledge entries`);
-    res.json(conocimiento);
+    console.log("Iniciando carga manual de Gemini 2.5 Flash...");
+    const result = await InyeccionGemini25.ejecutarCargaManual();
+    res.json({ success: true, message: result });
+  } catch (error) {
+    console.error("Error en carga Gemini:", error);
+    res.status(500).json({ error: "Failed to load Gemini data" });
+  }
+  return;
+});
+
+// Obtener todo el conocimiento
+router.get("/api/knowledge", async (req, res) => {
+  try {
+    const knowledge = await db.selectFrom("conocimientoIA").selectAll().execute();
+    res.json(knowledge);
   } catch (error) {
     console.error("Error fetching knowledge:", error);
-    res.status(500).json({ error: "Error al obtener conocimiento" });
+    res.status(500).json({ error: "Failed to fetch knowledge" });
   }
+  return;
 });
 
-// Add new knowledge
-router.post("/api/conocimiento", async (req, res) => {
+// Agregar nuevo conocimiento
+router.post("/api/knowledge", async (req, res) => {
   try {
-    const { materia, tema, contenido, grado, palabras_clave } = req.body;
+    const { materia, tema, contenido, grado, palabras_clave, tipo } = req.body;
     
-    if (!materia || !tema || !contenido || !grado) {
-      res.status(400).json({ error: "Todos los campos son requeridos" });
-      return;
-    }
+    const newKnowledge = {
+      id: crypto.randomUUID(),
+      materia,
+      tema,
+      contenido,
+      grado,
+      palabras_clave,
+      fecha_agregado: Date.now(),
+      tipo: tipo || "manual"
+    };
 
-    const id = uuidv4();
-    const fecha_agregado = Date.now();
-
-    await db
-      .insertInto("conocimientoIA")
-      .values({
-        id,
-        materia,
-        tema,
-        contenido,
-        grado,
-        palabras_clave: Array.isArray(palabras_clave) ? palabras_clave.join(",") : palabras_clave || "",
-        fecha_agregado,
-        tipo: "manual"
-      })
-      .execute();
-
-    console.log(`Added new knowledge: ${tema} (${materia})`);
-    res.json({ id, success: true });
+    await db.insertInto("conocimientoIA").values(newKnowledge).execute();
+    res.json(newKnowledge);
   } catch (error) {
     console.error("Error adding knowledge:", error);
-    res.status(500).json({ error: "Error al agregar conocimiento" });
+    res.status(500).json({ error: "Failed to add knowledge" });
   }
+  return;
 });
 
-// Delete knowledge
-router.delete("/api/conocimiento/:id", async (req, res) => {
+// Eliminar conocimiento
+router.delete("/api/knowledge/:id", async (req, res) => {
   try {
-    const { id } = req.params;
-
-    await db
-      .deleteFrom("conocimientoIA")
-      .where("id", "=", id)
-      .execute();
-
-    console.log(`Deleted knowledge entry: ${id}`);
+    await db.deleteFrom("conocimientoIA").where("id", "=", req.params.id).execute();
     res.json({ success: true });
   } catch (error) {
     console.error("Error deleting knowledge:", error);
-    res.status(500).json({ error: "Error al eliminar conocimiento" });
+    res.status(500).json({ error: "Failed to delete knowledge" });
   }
+  return;
 });
 
-// Search knowledge
-router.get("/api/conocimiento/buscar", async (req, res) => {
+// Chat con la IA usando Gemini 2.5
+router.post("/api/chat", async (req, res) => {
   try {
-    const { q } = req.query;
+    const { message, imageUrl } = req.body;
     
-    if (!q || typeof q !== "string") {
-      res.status(400).json({ error: "Query parameter required" });
-      return;
-    }
-
-    const query = q.toLowerCase();
-
-    const resultados = await db
+    // Buscar conocimiento relevante en la base de datos local
+    const knowledge = await db
       .selectFrom("conocimientoIA")
       .selectAll()
       .execute();
+    
+    // Construir contexto desde el conocimiento local
+    const localContext = knowledge
+      .map(k => `${k.materia} - ${k.tema}: ${k.contenido}`)
+      .join("\n");
+    
+    // Usar Gemini 2.5 Flash para generar respuesta
+    let aiResponse = "";
+    try {
+      const geminiPayload: any = {
+        contents: [{
+          parts: [{
+            text: `Contexto de conocimiento:\n${localContext}\n\nPregunta del usuario: ${message}\n\nResponde de forma clara y educativa en español.`
+          }]
+        }]
+      };
 
-    const filtered = resultados.filter((item) => {
-      return (
-        item.tema.toLowerCase().includes(query) ||
-        item.contenido.toLowerCase().includes(query) ||
-        item.materia.toLowerCase().includes(query) ||
-        item.palabras_clave.toLowerCase().includes(query)
+      // Si hay imagen, agregarla al contexto
+      if (imageUrl) {
+        geminiPayload.contents[0].parts.push({
+          inline_data: {
+            mime_type: "image/jpeg",
+            data: imageUrl
+          }
+        });
+      }
+
+      const response = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${InyeccionGemini25.config.model}:generateContent?key=${InyeccionGemini25.config.key}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(geminiPayload)
+        }
       );
-    });
 
-    console.log(`Search for "${q}" returned ${filtered.length} results`);
-    res.json(filtered);
+      const data = await response.json();
+      aiResponse = data.candidates?.[0]?.content?.parts?.[0]?.text || 
+                   "Lo siento, no pude procesar tu pregunta en este momento.";
+    } catch (geminiError) {
+      console.error("Error llamando a Gemini:", geminiError);
+      aiResponse = `Basándome en el conocimiento local sobre "${message}", aquí está la información disponible: ${localContext.substring(0, 500)}...`;
+    }
+    
+    // Guardar la conversación para que la IA aprenda
+    const conversation = {
+      id: crypto.randomUUID(),
+      pregunta: message,
+      respuesta: aiResponse,
+      contexto: localContext,
+      imagen_url: imageUrl || null,
+      fecha: Date.now(),
+      util: 1
+    };
+    
+    await db.insertInto("conversaciones").values(conversation).execute();
+    
+    res.json({ response: aiResponse, conversationId: conversation.id });
   } catch (error) {
-    console.error("Error searching knowledge:", error);
-    res.status(500).json({ error: "Error al buscar conocimiento" });
+    console.error("Error in chat:", error);
+    res.status(500).json({ error: "Failed to process chat" });
   }
+  return;
 });
 
-// Save conversation for learning
-router.post("/api/conversaciones", async (req, res) => {
+// Marcar conversación como útil/no útil (para aprendizaje)
+router.patch("/api/chat/:id/feedback", async (req, res) => {
   try {
-    const { pregunta, respuesta, contexto, imagen_url } = req.body;
-
-    const id = uuidv4();
-    const fecha = Date.now();
-
+    const { util } = req.body;
     await db
-      .insertInto("conversaciones")
-      .values({
-        id,
-        pregunta,
-        respuesta,
-        contexto: contexto || null,
-        imagen_url: imagen_url || null,
-        fecha,
-        util: 1
-      })
+      .updateTable("conversaciones")
+      .set({ util })
+      .where("id", "=", req.params.id)
       .execute();
-
-    console.log(`Saved conversation: ${pregunta.substring(0, 50)}...`);
-    res.json({ id, success: true });
+    res.json({ success: true });
   } catch (error) {
-    console.error("Error saving conversation:", error);
-    res.status(500).json({ error: "Error al guardar conversación" });
+    console.error("Error updating feedback:", error);
+    res.status(500).json({ error: "Failed to update feedback" });
   }
-});
-
-// Get conversation history
-router.get("/api/conversaciones", async (req, res) => {
-  try {
-    const conversaciones = await db
-      .selectFrom("conversaciones")
-      .selectAll()
-      .orderBy("fecha", "desc")
-      .limit(100)
-      .execute();
-
-    console.log(`Retrieved ${conversaciones.length} conversations`);
-    res.json(conversaciones);
-  } catch (error) {
-    console.error("Error fetching conversations:", error);
-    res.status(500).json({ error: "Error al obtener conversaciones" });
-  }
+  return;
 });
 
 export default router;

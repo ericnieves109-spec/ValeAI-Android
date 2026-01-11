@@ -3,7 +3,7 @@ import { Card } from "./ui/card";
 import { Input } from "./ui/input";
 import { Button } from "./ui/button";
 import { Label } from "./ui/label";
-import { Trash2, Plus, BookOpen, X } from "lucide-react";
+import { Trash2, Plus, BookOpen, X, Zap } from "lucide-react";
 
 interface Knowledge {
   id: string;
@@ -19,6 +19,7 @@ interface Knowledge {
 export function KnowledgeManager() {
   const [knowledge, setKnowledge] = React.useState<Knowledge[]>([]);
   const [isAdding, setIsAdding] = React.useState(false);
+  const [loading, setLoading] = React.useState(false);
   const [formData, setFormData] = React.useState({
     materia: "",
     tema: "",
@@ -33,7 +34,7 @@ export function KnowledgeManager() {
 
   async function loadKnowledge() {
     try {
-      const response = await fetch("/api/conocimiento");
+      const response = await fetch("/api/knowledge");
       if (response.ok) {
         const data = await response.json();
         setKnowledge(data);
@@ -44,11 +45,30 @@ export function KnowledgeManager() {
     }
   }
 
+  async function handleGeminiLoad() {
+    setLoading(true);
+    try {
+      const response = await fetch("/api/gemini/cargar", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" }
+      });
+      const result = await response.json();
+      console.log("Gemini 2.5 cargado:", result);
+      alert("✅ Motor Gemini 2.5 Flash cargado exitosamente");
+      loadKnowledge();
+    } catch (error) {
+      console.error("Error cargando Gemini:", error);
+      alert("❌ Error al cargar Gemini 2.5");
+    } finally {
+      setLoading(false);
+    }
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
 
     try {
-      const response = await fetch("/api/conocimiento", {
+      const response = await fetch("/api/knowledge", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(formData)
@@ -77,7 +97,7 @@ export function KnowledgeManager() {
     }
 
     try {
-      const response = await fetch(`/api/conocimiento/${id}`, {
+      const response = await fetch(`/api/knowledge/${id}`, {
         method: "DELETE"
       });
 
@@ -101,22 +121,32 @@ export function KnowledgeManager() {
           </div>
         </div>
 
-        <Button
-          onClick={() => setIsAdding(!isAdding)}
-          className="bg-red-600 hover:bg-red-700 text-white"
-        >
-          {isAdding ? (
-            <>
-              <X className="w-4 h-4 mr-2" />
-              Cancelar
-            </>
-          ) : (
-            <>
-              <Plus className="w-4 h-4 mr-2" />
-              Agregar Conocimiento
-            </>
-          )}
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            onClick={handleGeminiLoad}
+            disabled={loading}
+            className="bg-red-600 hover:bg-red-700 text-white"
+          >
+            <Zap className="w-4 h-4 mr-2" />
+            {loading ? "Cargando..." : "Cargar Gemini 2.5"}
+          </Button>
+          <Button
+            onClick={() => setIsAdding(!isAdding)}
+            className="bg-red-600 hover:bg-red-700 text-white"
+          >
+            {isAdding ? (
+              <>
+                <X className="w-4 h-4 mr-2" />
+                Cancelar
+              </>
+            ) : (
+              <>
+                <Plus className="w-4 h-4 mr-2" />
+                Agregar
+              </>
+            )}
+          </Button>
+        </div>
       </div>
 
       {isAdding && (
