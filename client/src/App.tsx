@@ -47,7 +47,7 @@ function App() {
 
   return (
     <div className="min-h-screen bg-black flex flex-col">
-      <Header contentCount={contentCount} mediaCount={mediaCount} />
+      <Header />
       
       <main className="flex-1 container mx-auto px-4 py-6">
         <ChatInterface />
