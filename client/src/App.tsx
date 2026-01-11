@@ -1,10 +1,9 @@
 import * as React from "react";
 import { LoadingScreen } from "./components/LoadingScreen";
 import { Header } from "./components/Header";
-import { SearchInterface } from "./components/SearchInterface";
-import { ContentViewer } from "./components/ContentViewer";
+import { ChatInterface } from "./components/ChatInterface";
 import { loadInitialContent } from "./lib/contentLoader";
-import { getDatabaseStats, AcademicContent } from "./lib/indexedDB";
+import { getDatabaseStats } from "./lib/indexedDB";
 
 function App() {
   const [isLoading, setIsLoading] = React.useState(true);
@@ -12,7 +11,6 @@ function App() {
   const [loadTotal, setLoadTotal] = React.useState(0);
   const [contentCount, setContentCount] = React.useState(0);
   const [mediaCount, setMediaCount] = React.useState(0);
-  const [selectedContent, setSelectedContent] = React.useState<AcademicContent | null>(null);
 
   React.useEffect(() => {
     async function initializeApp() {
@@ -48,39 +46,18 @@ function App() {
   }
 
   return (
-    <div className="min-h-screen bg-black">
+    <div className="min-h-screen bg-black flex flex-col">
       <Header contentCount={contentCount} mediaCount={mediaCount} />
       
-      <main className="container mx-auto px-4 py-8 max-w-4xl">
-        {selectedContent ? (
-          <ContentViewer
-            content={selectedContent}
-            onBack={() => setSelectedContent(null)}
-          />
-        ) : (
-          <>
-            <div className="mb-8 text-center space-y-2">
-              <h2 className="text-2xl font-bold text-white">
-                ¿Qué deseas aprender hoy?
-              </h2>
-              <p className="text-gray-400">
-                Busca contenido académico de 9° a 11° grado
-              </p>
-            </div>
-            
-            <SearchInterface onResultSelect={setSelectedContent} />
-          </>
-        )}
+      <main className="flex-1 container mx-auto px-4 py-6">
+        <ChatInterface />
       </main>
 
-      <footer className="border-t border-zinc-800 mt-16">
-        <div className="container mx-auto px-4 py-6">
-          <div className="text-center space-y-2">
+      <footer className="border-t border-zinc-800">
+        <div className="container mx-auto px-4 py-4">
+          <div className="text-center">
             <p className="text-xs text-gray-600">
-              INEM Kennedy - Sistema Autónomo Offline
-            </p>
-            <p className="text-xs text-gray-700">
-              Todo el contenido está almacenado localmente en tu dispositivo
+              INEM Kennedy - Sistema Autónomo Offline | Todo el contenido está almacenado localmente
             </p>
           </div>
         </div>
