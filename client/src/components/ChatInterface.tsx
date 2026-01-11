@@ -46,7 +46,7 @@ export function ChatInterface({ sessionId, onNewSession }: ChatInterfaceProps) {
         {
           id: "welcome",
           type: "assistant",
-          content: "¡Hola! 👋 Soy ValeAI, tu asistente académica personal.\n\n¿En qué puedo ayudarte hoy? Puedo explicarte temas de matemáticas, ciencias, historia y mucho más. También puedes mostrarme imágenes de ejercicios o problemas y te ayudaré a resolverlos. 😊\n\n¡Adelante, pregúntame lo que necesites!",
+          content: "¡Hola! 👋 Soy ValeAI, tu asistente personal.\n\n¿En qué puedo ayudarte hoy?",
           timestamp: Date.now()
         }
       ]);
