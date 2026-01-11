@@ -18,7 +18,7 @@ export function ChatInterface() {
     {
       id: "welcome",
       type: "assistant",
-      content: "¡Hola! Soy ValeAI, tu asistente académico offline. Pregúntame cualquier cosa.",
+      content: "¡Hola! 👋 Soy ValeAI, tu asistente académica personal.\n\n¿En qué puedo ayudarte hoy? Puedo explicarte temas de matemáticas, ciencias, historia y mucho más. También puedes mostrarme imágenes de ejercicios o problemas y te ayudaré a resolverlos. 😊\n\n¡Adelante, pregúntame lo que necesites!",
       timestamp: Date.now()
     }
   ]);
@@ -58,62 +58,24 @@ export function ChatInterface() {
     setIsProcessing(true);
 
     try {
-      let responseContent = "";
-      
-      if (userMessage.imageUrl) {
-        responseContent = "He analizado la imagen. ";
-      }
-      
-      // Search in database
-      const response = await fetch(`/api/conocimiento/buscar?q=${encodeURIComponent(input.trim())}`);
-      const results = response.ok ? await response.json() : [];
-      
-      let assistantResponse: Message;
-
-      if (results.length === 0 && !userMessage.imageUrl) {
-        assistantResponse = {
-          id: (Date.now() + 1).toString(),
-          type: "assistant",
-          content: "No encontré información específica sobre ese tema en mi base de datos. Intenta reformular tu pregunta o usar palabras clave diferentes. Puedes agregar nuevo conocimiento desde el gestor.",
-          timestamp: Date.now()
-        };
-      } else if (results.length === 0 && userMessage.imageUrl) {
-        assistantResponse = {
-          id: (Date.now() + 1).toString(),
-          type: "assistant",
-          content: responseContent + "No encontré información específica relacionada con esta imagen en mi base de datos. ¿Puedes darme más contexto sobre qué necesitas ayuda?",
-          timestamp: Date.now()
-        };
-      } else {
-        const topResults = results.slice(0, 3);
-        let responseText = responseContent + `Encontré ${results.length} resultado${results.length !== 1 ? "s" : ""} relacionado${results.length !== 1 ? "s" : ""}. Aquí están los más relevantes:\n\n`;
-        
-        topResults.forEach((result: any, idx: number) => {
-          responseText += `**${idx + 1}. ${result.tema}** (${result.grado}° - ${result.materia})\n`;
-          const preview = result.contenido.substring(0, 200).trim();
-          responseText += `${preview}${result.contenido.length > 200 ? "..." : ""}\n\n`;
-        });
-
-        assistantResponse = {
-          id: (Date.now() + 1).toString(),
-          type: "assistant",
-          content: responseText,
-          knowledge: topResults,
-          timestamp: Date.now()
-        };
-      }
-
-      // Save conversation for learning
-      await fetch("/api/conversaciones", {
+      // Llamar a la API de chat con Gemini
+      const response = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          pregunta: userMessage.content,
-          respuesta: assistantResponse.content,
-          contexto: results.length > 0 ? JSON.stringify(results.slice(0, 3)) : null,
-          imagen_url: userMessage.imageUrl || null
+          message: userMessage.content,
+          imageUrl: userMessage.imageUrl
         })
       });
+
+      const data = await response.json();
+      
+      const assistantResponse: Message = {
+        id: (Date.now() + 1).toString(),
+        type: "assistant",
+        content: data.response,
+        timestamp: Date.now()
+      };
 
       setMessages((prev) => [...prev, assistantResponse]);
     } catch (error) {
@@ -122,7 +84,7 @@ export function ChatInterface() {
       const errorMessage: Message = {
         id: (Date.now() + 1).toString(),
         type: "assistant",
-        content: "Hubo un error al procesar tu pregunta. Por favor intenta de nuevo.",
+        content: "¡Ups! 😅 Parece que tuve un pequeño problema técnico. ¿Podrías intentar preguntarme de nuevo? Prometo estar más atenta esta vez.",
         timestamp: Date.now()
       };
       

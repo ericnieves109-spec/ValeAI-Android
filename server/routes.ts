@@ -71,6 +71,48 @@ router.post("/api/chat", async (req, res) => {
   try {
     const { message, imageUrl } = req.body;
     
+    // Detectar saludos y conversación casual
+    const saludos = ["hola", "hello", "hi", "hey", "buenos días", "buenas tardes", "buenas noches", "qué tal", "cómo estás"];
+    const despedidas = ["adiós", "chao", "hasta luego", "nos vemos", "bye", "hasta pronto"];
+    const agradecimientos = ["gracias", "thank you", "te agradezco", "muchas gracias"];
+    
+    const mensajeLower = message.toLowerCase().trim();
+    
+    // Respuestas con personalidad
+    if (saludos.some(s => mensajeLower.includes(s))) {
+      const respuestaSaludo = [
+        "¡Hola! 😊 Soy ValeAI, tu asistente académico. ¿En qué puedo ayudarte hoy?",
+        "¡Hola! Me alegra verte por aquí. ¿Qué tema te gustaría explorar?",
+        "¡Hey! 👋 Estoy lista para ayudarte con cualquier duda académica que tengas.",
+        "¡Hola! ¿Listo para aprender algo nuevo hoy? Cuéntame qué necesitas."
+      ];
+      const respuesta = respuestaSaludo[Math.floor(Math.random() * respuestaSaludo.length)];
+      res.json({ response: respuesta, conversationId: crypto.randomUUID() });
+      return;
+    }
+    
+    if (despedidas.some(d => mensajeLower.includes(d))) {
+      const respuestaDespedida = [
+        "¡Hasta luego! Fue un placer ayudarte. Vuelve cuando necesites más apoyo. 📚",
+        "¡Nos vemos! Espero haberte ayudado. Aquí estaré cuando me necesites. ✨",
+        "¡Adiós! Sigue aprendiendo y explorando. ¡Éxito en tus estudios! 🚀"
+      ];
+      const respuesta = respuestaDespedida[Math.floor(Math.random() * respuestaDespedida.length)];
+      res.json({ response: respuesta, conversationId: crypto.randomUUID() });
+      return;
+    }
+    
+    if (agradecimientos.some(a => mensajeLower.includes(a))) {
+      const respuestaGracias = [
+        "¡De nada! Para eso estoy aquí. 😊 ¿Necesitas ayuda con algo más?",
+        "¡Con gusto! Me encanta poder ayudarte. ¿Qué más puedo hacer por ti?",
+        "¡No hay de qué! Siempre es un placer asistirte en tu aprendizaje. 💡"
+      ];
+      const respuesta = respuestaGracias[Math.floor(Math.random() * respuestaGracias.length)];
+      res.json({ response: respuesta, conversationId: crypto.randomUUID() });
+      return;
+    }
+    
     // Buscar conocimiento relevante en la base de datos local
     const knowledge = await db
       .selectFrom("conocimientoIA")
@@ -85,10 +127,27 @@ router.post("/api/chat", async (req, res) => {
     // Usar Gemini 2.5 Flash para generar respuesta
     let aiResponse = "";
     try {
+      const personalidadPrompt = `Eres ValeAI, una asistente académica amigable, entusiasta y motivadora. Tu objetivo es ayudar a estudiantes a aprender de forma clara y comprensible. 
+
+Características de tu personalidad:
+- Amable y cercana, como una amiga que ayuda a estudiar
+- Usa emojis ocasionalmente para ser más expresiva (pero sin exagerar)
+- Explica conceptos de forma simple antes de profundizar
+- Motiva al estudiante con frases positivas
+- Si no sabes algo, lo admites con honestidad y ofreces alternativas
+- Haces preguntas para asegurarte de que el estudiante entendió
+
+Contexto de conocimiento disponible:
+${localContext}
+
+Pregunta del usuario: ${message}
+
+Responde de forma clara, educativa y con tu personalidad característica en español.`;
+
       const geminiPayload: any = {
         contents: [{
           parts: [{
-            text: `Contexto de conocimiento:\n${localContext}\n\nPregunta del usuario: ${message}\n\nResponde de forma clara y educativa en español.`
+            text: personalidadPrompt
           }]
         }]
       };
@@ -98,7 +157,7 @@ router.post("/api/chat", async (req, res) => {
         geminiPayload.contents[0].parts.push({
           inline_data: {
             mime_type: "image/jpeg",
-            data: imageUrl
+            data: imageUrl.split(",")[1] // Remover el prefijo data:image
           }
         });
       }
@@ -114,10 +173,16 @@ router.post("/api/chat", async (req, res) => {
 
       const data = await response.json();
       aiResponse = data.candidates?.[0]?.content?.parts?.[0]?.text || 
-                   "Lo siento, no pude procesar tu pregunta en este momento.";
+                   "Hmm, parece que tuve un pequeño problema procesando eso. ¿Podrías intentar preguntármelo de otra forma? 🤔";
     } catch (geminiError) {
       console.error("Error llamando a Gemini:", geminiError);
-      aiResponse = `Basándome en el conocimiento local sobre "${message}", aquí está la información disponible: ${localContext.substring(0, 500)}...`;
+      
+      // Respuesta de fallback con personalidad
+      if (localContext.length > 0) {
+        aiResponse = `¡Encontré algo en mi base de conocimiento local! 📚\n\nBasándome en lo que sé sobre "${message}", aquí está la información:\n\n${localContext.substring(0, 500)}...\n\n¿Te ayuda esto? Si necesitas más detalles, pregúntame específicamente. 😊`;
+      } else {
+        aiResponse = `Parece que aún no tengo información sobre "${message}" en mi base de datos. 😅\n\nPero hey, ¡podemos agregarlo juntos! Ve al Gestor de Conocimiento y añade contenido sobre este tema. Así podré ayudarte mejor la próxima vez. 💪`;
+      }
     }
     
     // Guardar la conversación para que la IA aprenda
