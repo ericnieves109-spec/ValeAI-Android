@@ -17,7 +17,7 @@ export function ChatInterface() {
     {
       id: "welcome",
       type: "assistant",
-      content: "¡Hola! Soy ValeAI, tu asistente académico offline. Pregúntame sobre cualquier tema de 9° a 11° grado del INEM Kennedy.",
+      content: "¡Hola! Soy ValeAI, tu asistente académico offline. Pregúntame cualquier cosa.",
       timestamp: Date.now()
     }
   ]);
