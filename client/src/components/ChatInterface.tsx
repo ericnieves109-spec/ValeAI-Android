@@ -2,7 +2,6 @@ import * as React from "react";
 import { Input } from "./ui/input";
 import { Button } from "./ui/button";
 import { Card } from "./ui/card";
-import { searchContent, AcademicContent } from "../lib/indexedDB";
 import { Mic, MicOff, Camera, Send } from "lucide-react";
 
 interface Message {
@@ -10,7 +9,7 @@ interface Message {
   type: "user" | "assistant";
   content: string;
   imageUrl?: string;
-  academicContent?: AcademicContent[];
+  knowledge?: any[];
   timestamp: number;
 }
 
@@ -65,7 +64,9 @@ export function ChatInterface() {
         responseContent = "He analizado la imagen. ";
       }
       
-      const results = await searchContent(input.trim());
+      // Search in database
+      const response = await fetch(`/api/conocimiento/buscar?q=${encodeURIComponent(input.trim())}`);
+      const results = response.ok ? await response.json() : [];
       
       let assistantResponse: Message;
 
@@ -73,7 +74,7 @@ export function ChatInterface() {
         assistantResponse = {
           id: (Date.now() + 1).toString(),
           type: "assistant",
-          content: "No encontré información específica sobre ese tema en mi base de datos. Intenta reformular tu pregunta o usar palabras clave diferentes.",
+          content: "No encontré información específica sobre ese tema en mi base de datos. Intenta reformular tu pregunta o usar palabras clave diferentes. Puedes agregar nuevo conocimiento desde el gestor.",
           timestamp: Date.now()
         };
       } else if (results.length === 0 && userMessage.imageUrl) {
@@ -87,20 +88,32 @@ export function ChatInterface() {
         const topResults = results.slice(0, 3);
         let responseText = responseContent + `Encontré ${results.length} resultado${results.length !== 1 ? "s" : ""} relacionado${results.length !== 1 ? "s" : ""}. Aquí están los más relevantes:\n\n`;
         
-        topResults.forEach((result, idx) => {
-          responseText += `**${idx + 1}. ${result.topic}** (${result.grade}° - ${result.subject})\n`;
-          const preview = result.content.substring(0, 200).trim();
-          responseText += `${preview}${result.content.length > 200 ? "..." : ""}\n\n`;
+        topResults.forEach((result: any, idx: number) => {
+          responseText += `**${idx + 1}. ${result.tema}** (${result.grado}° - ${result.materia})\n`;
+          const preview = result.contenido.substring(0, 200).trim();
+          responseText += `${preview}${result.contenido.length > 200 ? "..." : ""}\n\n`;
         });
 
         assistantResponse = {
           id: (Date.now() + 1).toString(),
           type: "assistant",
           content: responseText,
-          academicContent: topResults,
+          knowledge: topResults,
           timestamp: Date.now()
         };
       }
+
+      // Save conversation for learning
+      await fetch("/api/conversaciones", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          pregunta: userMessage.content,
+          respuesta: assistantResponse.content,
+          contexto: results.length > 0 ? JSON.stringify(results.slice(0, 3)) : null,
+          imagen_url: userMessage.imageUrl || null
+        })
+      });
 
       setMessages((prev) => [...prev, assistantResponse]);
     } catch (error) {
@@ -237,18 +250,21 @@ export function ChatInterface() {
                 })}
               </div>
               
-              {message.academicContent && message.academicContent.length > 0 && (
+              {message.knowledge && message.knowledge.length > 0 && (
                 <div className="mt-4 pt-4 border-t border-zinc-800 space-y-2">
                   <p className="text-xs text-gray-500 mb-2">Palabras clave relacionadas:</p>
                   <div className="flex flex-wrap gap-2">
-                    {message.academicContent.flatMap(c => c.keywords).slice(0, 8).map((keyword, idx) => (
-                      <span
-                        key={idx}
-                        className="text-xs bg-zinc-800 text-gray-400 px-2 py-1 rounded"
-                      >
-                        #{keyword}
-                      </span>
-                    ))}
+                    {message.knowledge
+                      .flatMap((k: any) => k.palabras_clave.split(","))
+                      .slice(0, 8)
+                      .map((keyword: string, idx: number) => (
+                        <span
+                          key={idx}
+                          className="text-xs bg-zinc-800 text-gray-400 px-2 py-1 rounded"
+                        >
+                          #{keyword.trim()}
+                        </span>
+                      ))}
                   </div>
                 </div>
               )}

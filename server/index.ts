@@ -1,6 +1,7 @@
 import express from 'express';
 import dotenv from 'dotenv';
 import { setupStaticServing } from './static-serve.js';
+import routes from './routes.js';
 
 dotenv.config();
 
@@ -10,10 +11,8 @@ const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// example endpoint
-// app.get('/api/hello', (req: express.Request, res: express.Response) => {
-//   res.json({ message: 'Hello World!' });
-// });
+// API routes
+app.use(routes);
 
 // Export a function to start the server
 export async function startServer(port) {
