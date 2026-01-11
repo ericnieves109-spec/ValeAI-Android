@@ -1,4 +1,5 @@
 import * as React from "react";
+import { ThemeToggle } from "./ThemeToggle";
 
 export function Header() {
   return (
@@ -15,7 +16,10 @@ export function Header() {
             </div>
           </div>
 
-          <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+          <div className="flex items-center gap-4">
+            <ThemeToggle />
+            <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+          </div>
         </div>
       </div>
     </header>

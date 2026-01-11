@@ -2,7 +2,7 @@ import * as React from "react";
 import { Input } from "./ui/input";
 import { Button } from "./ui/button";
 import { Card } from "./ui/card";
-import { Mic, MicOff, Camera, Send } from "lucide-react";
+import { Mic, MicOff, Camera, Send, Download } from "lucide-react";
 
 interface Message {
   id: string;
@@ -13,19 +13,18 @@ interface Message {
   timestamp: number;
 }
 
-export function ChatInterface() {
-  const [messages, setMessages] = React.useState<Message[]>([
-    {
-      id: "welcome",
-      type: "assistant",
-      content: "¡Hola! 👋 Soy ValeAI, tu asistente académica personal.\n\n¿En qué puedo ayudarte hoy? Puedo explicarte temas de matemáticas, ciencias, historia y mucho más. También puedes mostrarme imágenes de ejercicios o problemas y te ayudaré a resolverlos. 😊\n\n¡Adelante, pregúntame lo que necesites!",
-      timestamp: Date.now()
-    }
-  ]);
+interface ChatInterfaceProps {
+  sessionId: string | null;
+  onNewSession: (sessionId: string) => void;
+}
+
+export function ChatInterface({ sessionId, onNewSession }: ChatInterfaceProps) {
+  const [messages, setMessages] = React.useState<Message[]>([]);
   const [input, setInput] = React.useState("");
   const [isProcessing, setIsProcessing] = React.useState(false);
   const [isRecording, setIsRecording] = React.useState(false);
   const [selectedImage, setSelectedImage] = React.useState<string | null>(null);
+  const [currentSession, setCurrentSession] = React.useState<string | null>(sessionId);
   const messagesEndRef = React.useRef<HTMLDivElement>(null);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   const mediaRecorderRef = React.useRef<MediaRecorder | null>(null);
@@ -38,6 +37,33 @@ export function ChatInterface() {
   React.useEffect(() => {
     scrollToBottom();
   }, [messages]);
+
+  React.useEffect(() => {
+    if (sessionId) {
+      loadSession(sessionId);
+    } else {
+      setMessages([
+        {
+          id: "welcome",
+          type: "assistant",
+          content: "¡Hola! 👋 Soy ValeAI, tu asistente académica personal.\n\n¿En qué puedo ayudarte hoy? Puedo explicarte temas de matemáticas, ciencias, historia y mucho más. También puedes mostrarme imágenes de ejercicios o problemas y te ayudaré a resolverlos. 😊\n\n¡Adelante, pregúntame lo que necesites!",
+          timestamp: Date.now()
+        }
+      ]);
+      setCurrentSession(null);
+    }
+  }, [sessionId]);
+
+  async function loadSession(id: string) {
+    try {
+      const response = await fetch(`/api/chat/sessions/${id}/messages`);
+      const data = await response.json();
+      setMessages(data);
+      setCurrentSession(id);
+    } catch (error) {
+      console.error("Error loading session:", error);
+    }
+  }
 
   async function handleSendMessage() {
     if ((!input.trim() && !selectedImage) || isProcessing) {
@@ -64,11 +90,18 @@ export function ChatInterface() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           message: userMessage.content,
-          imageUrl: userMessage.imageUrl
+          imageUrl: userMessage.imageUrl,
+          sessionId: currentSession
         })
       });
 
       const data = await response.json();
+      
+      // Si es una sesión nueva, actualizar el ID
+      if (!currentSession && data.sessionId) {
+        setCurrentSession(data.sessionId);
+        onNewSession(data.sessionId);
+      }
       
       const assistantResponse: Message = {
         id: (Date.now() + 1).toString(),
@@ -174,8 +207,41 @@ export function ChatInterface() {
     }
   }
 
+  async function handleExportChat() {
+    try {
+      const chatContent = messages
+        .map(m => `[${m.type === "user" ? "Tú" : "ValeAI"}]: ${m.content}`)
+        .join("\n\n");
+      
+      const blob = new Blob([chatContent], { type: "text/plain" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `chat-valeai-${new Date().toISOString().split("T")[0]}.txt`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error("Error exporting chat:", error);
+    }
+  }
+
   return (
     <div className="flex flex-col h-[calc(100vh-200px)] max-w-4xl mx-auto">
+      {messages.length > 1 && (
+        <div className="px-4 pb-2">
+          <Button
+            onClick={handleExportChat}
+            variant="ghost"
+            size="sm"
+            className="text-gray-400 hover:text-white"
+          >
+            <Download className="w-4 h-4 mr-2" />
+            Exportar conversación
+          </Button>
+        </div>
+      )}
       <div className="flex-1 overflow-y-auto space-y-4 p-4 scroll-smooth">
         {messages.map((message) => (
           <div

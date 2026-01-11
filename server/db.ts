@@ -26,9 +26,28 @@ interface Conversacion {
   util: number;
 }
 
+interface ChatSession {
+  id: string;
+  title: string;
+  created_at: number;
+  updated_at: number;
+  message_count: number;
+}
+
+interface ChatMessage {
+  id: string;
+  session_id: string;
+  type: string;
+  content: string;
+  image_url: string | null;
+  timestamp: number;
+}
+
 interface Database {
   conocimientoIA: ConocimientoIA;
   conversaciones: Conversacion;
+  chat_sessions: ChatSession;
+  chat_messages: ChatMessage;
 }
 
 const sqliteDb = new SQLite(dbPath);

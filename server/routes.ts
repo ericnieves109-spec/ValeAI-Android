@@ -66,10 +66,58 @@ router.delete("/api/knowledge/:id", async (req, res) => {
   return;
 });
 
+// Obtener todas las sesiones de chat
+router.get("/api/chat/sessions", async (req, res) => {
+  try {
+    const sessions = await db
+      .selectFrom("chat_sessions")
+      .selectAll()
+      .orderBy("updated_at", "desc")
+      .execute();
+    res.json(sessions);
+  } catch (error) {
+    console.error("Error fetching chat sessions:", error);
+    res.status(500).json({ error: "Failed to fetch chat sessions" });
+  }
+  return;
+});
+
+// Obtener mensajes de una sesión
+router.get("/api/chat/sessions/:id/messages", async (req, res) => {
+  try {
+    const messages = await db
+      .selectFrom("chat_messages")
+      .selectAll()
+      .where("session_id", "=", req.params.id)
+      .orderBy("timestamp", "asc")
+      .execute();
+    res.json(messages);
+  } catch (error) {
+    console.error("Error fetching session messages:", error);
+    res.status(500).json({ error: "Failed to fetch messages" });
+  }
+  return;
+});
+
+// Eliminar sesión de chat
+router.delete("/api/chat/sessions/:id", async (req, res) => {
+  try {
+    await db.deleteFrom("chat_messages").where("session_id", "=", req.params.id).execute();
+    await db.deleteFrom("chat_sessions").where("id", "=", req.params.id).execute();
+    res.json({ success: true });
+  } catch (error) {
+    console.error("Error deleting chat session:", error);
+    res.status(500).json({ error: "Failed to delete session" });
+  }
+  return;
+});
+
 // Chat con la IA usando Gemini 2.5
 router.post("/api/chat", async (req, res) => {
   try {
-    const { message, imageUrl } = req.body;
+    const { message, imageUrl, sessionId } = req.body;
+    
+    let currentSessionId = sessionId;
     
     // Detectar saludos y conversación casual
     const saludos = ["hola", "hello", "hi", "hey", "buenos días", "buenas tardes", "buenas noches", "qué tal", "cómo estás"];
@@ -185,6 +233,59 @@ Responde de forma clara, educativa y con tu personalidad característica en espa
       }
     }
     
+    // Guardar en sesión de chat
+    if (!currentSessionId) {
+      // Crear nueva sesión
+      currentSessionId = crypto.randomUUID();
+      const sessionTitle = message.length > 50 ? message.substring(0, 50) + "..." : message;
+      
+      await db.insertInto("chat_sessions").values({
+        id: currentSessionId,
+        title: sessionTitle,
+        created_at: Date.now(),
+        updated_at: Date.now(),
+        message_count: 2
+      }).execute();
+    } else {
+      // Actualizar sesión existente
+      const session = await db
+        .selectFrom("chat_sessions")
+        .select("message_count")
+        .where("id", "=", currentSessionId)
+        .executeTakeFirst();
+      
+      await db
+        .updateTable("chat_sessions")
+        .set({
+          updated_at: Date.now(),
+          message_count: (session?.message_count || 0) + 2
+        })
+        .where("id", "=", currentSessionId)
+        .execute();
+    }
+    
+    // Guardar mensajes
+    const userMessageId = crypto.randomUUID();
+    const assistantMessageId = crypto.randomUUID();
+    
+    await db.insertInto("chat_messages").values({
+      id: userMessageId,
+      session_id: currentSessionId,
+      type: "user",
+      content: message,
+      image_url: imageUrl || null,
+      timestamp: Date.now()
+    }).execute();
+    
+    await db.insertInto("chat_messages").values({
+      id: assistantMessageId,
+      session_id: currentSessionId,
+      type: "assistant",
+      content: aiResponse,
+      image_url: null,
+      timestamp: Date.now()
+    }).execute();
+    
     // Guardar la conversación para que la IA aprenda
     const conversation = {
       id: crypto.randomUUID(),
@@ -198,7 +299,7 @@ Responde de forma clara, educativa y con tu personalidad característica en espa
     
     await db.insertInto("conversaciones").values(conversation).execute();
     
-    res.json({ response: aiResponse, conversationId: conversation.id });
+    res.json({ response: aiResponse, conversationId: conversation.id, sessionId: currentSessionId });
   } catch (error) {
     console.error("Error in chat:", error);
     res.status(500).json({ error: "Failed to process chat" });
