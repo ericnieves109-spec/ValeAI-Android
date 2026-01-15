@@ -1,6 +1,6 @@
 import { Router } from "express";
-import { db } from "./db";
-import { InyeccionGemini25 } from "./extraccion";
+import { db } from "./db.js";
+import { InyeccionGemini25 } from "./extraccion.js";
 
 const router = Router();
 
