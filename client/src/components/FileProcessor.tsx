@@ -145,7 +145,7 @@ export function FileProcessor() {
             Cargar Archivos para Aprendizaje
           </h3>
           <p className="text-gray-400 text-sm">
-            Soporta: PDF, TXT, DOCX, MD, HTML, JSON
+            Soporta: PDF, TXT, DOCX, MD, HTML, JSON, ZIP, RAR, TAR, GZ, BZ2, 7Z y carpetas completas
           </p>
         </div>
 
@@ -153,7 +153,6 @@ export function FileProcessor() {
           ref={fileInputRef}
           type="file"
           multiple
-          accept=".pdf,.txt,.doc,.docx,.md,.html,.json"
           onChange={handleFileSelect}
           className="hidden"
         />

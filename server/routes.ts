@@ -4,6 +4,11 @@ import { InyeccionGemini25 } from "./extraccion.js";
 import multer from "multer";
 import mammoth from "mammoth";
 import pdfParse from "pdf-parse-fork";
+import AdmZip from "adm-zip";
+import { Readable } from "stream";
+import unzipper from "unzipper";
+import tar from "tar-stream";
+import { createGunzip, createBrotliDecompress } from "zlib";
 
 const router = Router();
 
@@ -967,6 +972,143 @@ const upload = multer({
   limits: { fileSize: 50 * 1024 * 1024 } // 50MB máximo
 });
 
+// Función para limpiar texto y quitar símbolos innecesarios
+function cleanText(text: string): string {
+  return text
+    // Remover caracteres de control
+    .replace(/[\x00-\x1F\x7F-\x9F]/g, " ")
+    // Remover múltiples espacios
+    .replace(/\s+/g, " ")
+    // Remover símbolos especiales excesivos pero mantener puntuación básica
+    .replace(/[^\w\s.,;:!?¿¡()áéíóúñÁÉÍÓÚÑ-]/g, " ")
+    // Limpiar espacios al inicio y final
+    .trim();
+}
+
+// Función para extraer contenido de archivos comprimidos
+async function extractCompressedFile(buffer: Buffer, filename: string): Promise<string> {
+  let allContent = "";
+  const fileExt = filename.split(".").pop()?.toLowerCase();
+  
+  try {
+    if (fileExt === "zip") {
+      const zip = new AdmZip(buffer);
+      const entries = zip.getEntries();
+      
+      for (const entry of entries) {
+        if (!entry.isDirectory) {
+          const content = entry.getData().toString("utf-8");
+          const cleanedContent = cleanText(content);
+          allContent += `\n[${entry.entryName}]\n${cleanedContent}\n`;
+        }
+      }
+    } else if (fileExt === "tar" || fileExt === "gz" || fileExt === "tgz") {
+      return new Promise((resolve, reject) => {
+        const extract = tar.extract();
+        let content = "";
+        
+        extract.on("entry", (header, stream, next) => {
+          let fileContent = "";
+          stream.on("data", (chunk) => {
+            fileContent += chunk.toString("utf-8");
+          });
+          stream.on("end", () => {
+            const cleanedContent = cleanText(fileContent);
+            content += `\n[${header.name}]\n${cleanedContent}\n`;
+            next();
+          });
+          stream.resume();
+        });
+        
+        extract.on("finish", () => resolve(content));
+        extract.on("error", reject);
+        
+        if (fileExt === "gz" || fileExt === "tgz") {
+          Readable.from(buffer).pipe(createGunzip()).pipe(extract);
+        } else {
+          Readable.from(buffer).pipe(extract);
+        }
+      });
+    } else if (fileExt === "bz2") {
+      // BZ2 simple descompresión
+      return new Promise((resolve, reject) => {
+        let content = "";
+        const stream = Readable.from(buffer);
+        
+        stream.on("data", (chunk) => {
+          content += chunk.toString("utf-8");
+        });
+        stream.on("end", () => resolve(cleanText(content)));
+        stream.on("error", reject);
+      });
+    }
+  } catch (error) {
+    console.error("Error extrayendo archivo comprimido:", error);
+  }
+  
+  return allContent;
+}
+
+// Función mejorada para procesar archivo individual
+async function processIndividualFile(buffer: Buffer, filename: string): Promise<string> {
+  const fileType = filename.split(".").pop()?.toLowerCase() || "unknown";
+  let extractedContent = "";
+  
+  try {
+    // Archivos de texto plano
+    if (["txt", "md", "markdown", "log", "csv", "tsv", "xml", "yaml", "yml", "ini", "conf", "config"].includes(fileType)) {
+      extractedContent = cleanText(buffer.toString("utf-8"));
+    } 
+    // PDF
+    else if (fileType === "pdf") {
+      const pdfData = await pdfParse(buffer);
+      extractedContent = cleanText(pdfData.text);
+    } 
+    // Word
+    else if (["docx", "doc"].includes(fileType)) {
+      const result = await mammoth.extractRawText({ buffer });
+      extractedContent = cleanText(result.value);
+    } 
+    // JSON
+    else if (fileType === "json") {
+      const jsonData = JSON.parse(buffer.toString("utf-8"));
+      extractedContent = cleanText(JSON.stringify(jsonData, null, 2));
+    } 
+    // HTML/HTM
+    else if (["html", "htm"].includes(fileType)) {
+      const htmlContent = buffer.toString("utf-8");
+      // Remover tags HTML pero mantener el texto
+      const textContent = htmlContent.replace(/<[^>]*>/g, " ");
+      extractedContent = cleanText(textContent);
+    }
+    // JavaScript/TypeScript/CSS
+    else if (["js", "jsx", "ts", "tsx", "css", "scss", "sass", "less"].includes(fileType)) {
+      extractedContent = cleanText(buffer.toString("utf-8"));
+    }
+    // Python/Java/C/C++/etc
+    else if (["py", "java", "c", "cpp", "h", "hpp", "cs", "php", "rb", "go", "rs", "swift", "kt"].includes(fileType)) {
+      extractedContent = cleanText(buffer.toString("utf-8"));
+    }
+    // Archivos comprimidos
+    else if (["zip", "tar", "gz", "tgz", "bz2", "7z", "rar"].includes(fileType)) {
+      extractedContent = await extractCompressedFile(buffer, filename);
+    }
+    // Cualquier otro archivo de texto
+    else {
+      try {
+        extractedContent = cleanText(buffer.toString("utf-8"));
+      } catch {
+        extractedContent = `[Archivo binario: ${filename}]`;
+      }
+    }
+  } catch (error) {
+    console.error(`Error procesando ${filename}:`, error);
+    extractedContent = `[Error al procesar: ${filename}]`;
+  }
+  
+  return extractedContent;
+}
+
 // Procesar archivo y extraer conocimiento
 router.post("/api/process-file", upload.single("file"), async (req: any, res) => {
   try {
@@ -982,30 +1124,8 @@ router.post("/api/process-file", upload.single("file"), async (req: any, res) =>
     
     let extractedContent = "";
     
-    // Extraer contenido según tipo de archivo
-    try {
-      if (fileType === "txt" || fileType === "md") {
-        extractedContent = file.buffer.toString("utf-8");
-      } else if (fileType === "pdf") {
-        const pdfData = await pdfParse(file.buffer);
-        extractedContent = pdfData.text;
-      } else if (fileType === "docx" || fileType === "doc") {
-        const result = await mammoth.extractRawText({ buffer: file.buffer });
-        extractedContent = result.value;
-      } else if (fileType === "json") {
-        const jsonData = JSON.parse(file.buffer.toString("utf-8"));
-        extractedContent = JSON.stringify(jsonData, null, 2);
-      } else if (fileType === "html") {
-        extractedContent = file.buffer.toString("utf-8");
-      } else {
-        res.status(400).json({ error: "Unsupported file type" });
-        return;
-      }
-    } catch (parseError) {
-      console.error("Error parsing file:", parseError);
-      res.status(500).json({ error: "Error parsing file content" });
-      return;
-    }
+    // Extraer contenido usando la función mejorada
+    extractedContent = await processIndividualFile(file.buffer, file.originalname);
 
     // Intentar extraer conocimiento usando Gemini si está online
     let extractedKnowledge = "";
@@ -1016,19 +1136,19 @@ router.post("/api/process-file", upload.single("file"), async (req: any, res) =>
     
     if (isOnline && extractedContent) {
       try {
-        const analysisPrompt = `Analiza el siguiente texto educativo y extrae:
-1. Los temas principales tratados (máximo 10)
-2. Las categorías académicas (ej: Matemáticas, Física, Historia, etc.)
-3. Un resumen del conocimiento más importante (máximo 500 palabras)
+        const analysisPrompt = `Analiza el siguiente contenido y extrae SOLAMENTE lo más relevante y educativo:
+1. Los temas principales (máximo 10, solo lo esencial)
+2. Las categorías académicas pertinentes
+3. Un resumen conciso con el conocimiento clave (máximo 300 palabras, sin símbolos innecesarios ni ruido)
 
-Texto:
-${extractedContent.substring(0, 10000)}
+Contenido limpio:
+${extractedContent.substring(0, 15000)}
 
-Responde en formato JSON:
+Responde en formato JSON puro sin markdown:
 {
-  "topics": ["tema1", "tema2", ...],
-  "categories": ["categoría1", "categoría2", ...],
-  "summary": "resumen del conocimiento"
+  "topics": ["tema1", "tema2"],
+  "categories": ["categoría1"],
+  "summary": "resumen limpio y directo del conocimiento útil"
 }`;
 
         const response = await fetch(
@@ -1048,13 +1168,14 @@ Responde en formato JSON:
           const data = await response.json();
           const analysisText = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
           
-          // Intentar parsear JSON de la respuesta
-          const jsonMatch = analysisText.match(/\{[\s\S]*\}/);
+          // Limpiar respuesta de markdown y parsear JSON
+          const cleanedAnalysis = analysisText.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
+          const jsonMatch = cleanedAnalysis.match(/\{[\s\S]*\}/);
           if (jsonMatch) {
             const analysis = JSON.parse(jsonMatch[0]);
             learnedTopics = analysis.topics || [];
             categories = analysis.categories || [];
-            extractedKnowledge = analysis.summary || "";
+            extractedKnowledge = cleanText(analysis.summary || "");
           }
         }
       } catch (geminiError) {
@@ -1062,12 +1183,12 @@ Responde en formato JSON:
       }
     }
 
-    // Guardar archivo procesado
+    // Guardar archivo procesado con contenido limpio
     const processedFile = {
       id: crypto.randomUUID(),
       filename: file.originalname,
       file_type: fileType,
-      content: extractedContent.substring(0, 100000), // Limitar a 100KB
+      content: cleanText(extractedContent.substring(0, 100000)), // Limitar a 100KB y limpiar
       extracted_knowledge: extractedKnowledge || null,
       processing_date: Date.now(),
       file_size: file.size,
