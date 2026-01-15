@@ -167,7 +167,30 @@ router.post("/api/generate-image", async (req, res) => {
       }
     );
     
-    const imageData = await imageResponse.json();
+    if (!imageResponse.ok) {
+      const errorText = await imageResponse.text();
+      console.error("Error de API Gemini Imagen:", imageResponse.status, errorText);
+      res.status(imageResponse.status).json({ 
+        error: `Error al generar imagen: ${imageResponse.statusText}`,
+        details: errorText 
+      });
+      return;
+    }
+    
+    const responseText = await imageResponse.text();
+    console.log("Respuesta de Gemini Imagen:", responseText);
+    
+    let imageData;
+    try {
+      imageData = JSON.parse(responseText);
+    } catch (parseError) {
+      console.error("Error parseando respuesta:", parseError);
+      res.status(500).json({ 
+        error: "Error procesando respuesta de la API",
+        details: responseText.substring(0, 200) 
+      });
+      return;
+    }
     
     if (imageData.images && imageData.images.length > 0) {
       const generatedImage = {
@@ -188,7 +211,11 @@ router.post("/api/generate-image", async (req, res) => {
         imageData: generatedImage.image_data 
       });
     } else {
-      res.status(500).json({ error: "No se pudo generar la imagen" });
+      console.error("No se encontraron imágenes en la respuesta:", imageData);
+      res.status(500).json({ 
+        error: "No se pudo generar la imagen",
+        details: imageData 
+      });
     }
   } catch (error) {
     console.error("Error generando imagen:", error);
