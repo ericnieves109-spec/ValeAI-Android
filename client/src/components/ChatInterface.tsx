@@ -46,7 +46,7 @@ export function ChatInterface({ sessionId, onNewSession }: ChatInterfaceProps) {
         {
           id: "welcome",
           type: "assistant",
-          content: "¡Hola! 👋 Soy ValeAI, tu asistente personal.\n\n¿En qué puedo ayudarte hoy?",
+          content: "¡Estoy lista y emocionada para que empecemos a aprender juntos! Cuéntame, ¿por dónde quieres que empecemos hoy? ¿Tienes alguna duda o tema en mente? ¡Estoy aquí para ti! ✨",
           timestamp: Date.now()
         }
       ]);
@@ -385,7 +385,7 @@ export function ChatInterface({ sessionId, onNewSession }: ChatInterfaceProps) {
         </div>
         
         <p className="text-xs text-gray-600 mt-2 text-center">
-          Modo adaptativo: Online (Gemini) | Offline (Base local integrada)
+          Modo adaptativo: Online (Gemini) | Sin conexión (Base local integrada)
         </p>
       </div>
     </div>

@@ -33,43 +33,43 @@ function App() {
       <Header />
       
       <div className="border-b border-zinc-800 bg-black/50">
-        <div className="container mx-auto px-4 py-2 flex gap-2">
+        <div className="container mx-auto px-4 py-2 flex gap-2 overflow-x-auto">
           <Button
             onClick={() => setView("chat")}
-            variant={view === "chat" ? "default" : "ghost"}
-            className={view === "chat" ? "bg-red-600 hover:bg-red-700" : "text-gray-400 hover:text-white"}
+            variant="ghost"
+            className={view === "chat" ? "bg-red-600 hover:bg-red-700 text-white" : "text-gray-400 hover:text-white hover:bg-zinc-800"}
           >
             <MessageSquare className="w-4 h-4 mr-2" />
-            Chat
+            Charlar
           </Button>
           <Button
             onClick={() => setView("history")}
-            variant={view === "history" ? "default" : "ghost"}
-            className={view === "history" ? "bg-red-600 hover:bg-red-700" : "text-gray-400 hover:text-white"}
+            variant="ghost"
+            className={view === "history" ? "bg-red-600 hover:bg-red-700 text-white" : "text-gray-400 hover:text-white hover:bg-zinc-800"}
           >
             <History className="w-4 h-4 mr-2" />
-            Historial
+            Histórico
           </Button>
           <Button
             onClick={() => setView("images")}
-            variant={view === "images" ? "default" : "ghost"}
-            className={view === "images" ? "bg-red-600 hover:bg-red-700" : "text-gray-400 hover:text-white"}
+            variant="ghost"
+            className={view === "images" ? "bg-red-600 hover:bg-red-700 text-white" : "text-gray-400 hover:text-white hover:bg-zinc-800"}
           >
             <Image className="w-4 h-4 mr-2" />
             Imágenes IA
           </Button>
           <Button
             onClick={() => setView("files")}
-            variant={view === "files" ? "default" : "ghost"}
-            className={view === "files" ? "bg-red-600 hover:bg-red-700" : "text-gray-400 hover:text-white"}
+            variant="ghost"
+            className={view === "files" ? "bg-red-600 hover:bg-red-700 text-white" : "text-gray-400 hover:text-white hover:bg-zinc-800"}
           >
             <Upload className="w-4 h-4 mr-2" />
             Aprendizaje
           </Button>
           <Button
             onClick={() => setView("knowledge")}
-            variant={view === "knowledge" ? "default" : "ghost"}
-            className={view === "knowledge" ? "bg-red-600 hover:bg-red-700" : "text-gray-400 hover:text-white"}
+            variant="ghost"
+            className={view === "knowledge" ? "bg-red-600 hover:bg-red-700 text-white" : "text-gray-400 hover:text-white hover:bg-zinc-800"}
           >
             <Settings className="w-4 h-4 mr-2" />
             Conocimiento
@@ -89,7 +89,7 @@ function App() {
         <div className="container mx-auto px-4 py-4">
           <div className="text-center">
             <p className="text-xs text-gray-600">
-              Sistema Autónomo Offline | Todo el contenido está almacenado localmente
+              Sistema Autónomo Desconectado | Todo el contenido está almacenado localmente
             </p>
           </div>
         </div>
