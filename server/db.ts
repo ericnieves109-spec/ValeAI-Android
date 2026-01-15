@@ -52,12 +52,37 @@ interface GeneratedImage {
   size: string;
 }
 
+interface ProcessedFile {
+  id: string;
+  filename: string;
+  file_type: string;
+  content: string;
+  extracted_knowledge: string | null;
+  processing_date: number;
+  file_size: number;
+  categories: string | null;
+  learned_topics: string | null;
+}
+
+interface LearningProgress {
+  id: string;
+  topic: string;
+  subject_area: string;
+  proficiency_level: number;
+  sources_count: number;
+  last_updated: number;
+  confidence_score: number;
+  related_files: string | null;
+}
+
 interface Database {
   conocimientoIA: ConocimientoIA;
   conversaciones: Conversacion;
   chat_sessions: ChatSession;
   chat_messages: ChatMessage;
   generated_images: GeneratedImage;
+  processed_files: ProcessedFile;
+  learning_progress: LearningProgress;
 }
 
 const sqliteDb = new SQLite(dbPath);

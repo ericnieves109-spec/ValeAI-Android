@@ -5,11 +5,13 @@ import { ChatInterface } from "./components/ChatInterface";
 import { KnowledgeManager } from "./components/KnowledgeManager";
 import { ChatHistory } from "./components/ChatHistory";
 import { ImageGenerator } from "./components/ImageGenerator";
-import { Settings, MessageSquare, History, Image } from "lucide-react";
+import { FileProcessor } from "./components/FileProcessor";
+import { ConnectionStatus } from "./components/ConnectionStatus";
+import { Settings, MessageSquare, History, Image, Upload } from "lucide-react";
 import { Button } from "./components/ui/button";
 
 function App() {
-  const [view, setView] = React.useState<"chat" | "knowledge" | "history" | "images">("chat");
+  const [view, setView] = React.useState<"chat" | "knowledge" | "history" | "images" | "files">("chat");
   const [currentSessionId, setCurrentSessionId] = React.useState<string | null>(null);
   const [refreshKey, setRefreshKey] = React.useState(0);
 
@@ -27,6 +29,7 @@ function App() {
 
   return (
     <div className="min-h-screen bg-black dark:bg-black flex flex-col">
+      <ConnectionStatus />
       <Header />
       
       <div className="border-b border-zinc-800 bg-black/50">
@@ -56,6 +59,14 @@ function App() {
             Imágenes IA
           </Button>
           <Button
+            onClick={() => setView("files")}
+            variant={view === "files" ? "default" : "ghost"}
+            className={view === "files" ? "bg-red-600 hover:bg-red-700" : "text-gray-400 hover:text-white"}
+          >
+            <Upload className="w-4 h-4 mr-2" />
+            Aprendizaje
+          </Button>
+          <Button
             onClick={() => setView("knowledge")}
             variant={view === "knowledge" ? "default" : "ghost"}
             className={view === "knowledge" ? "bg-red-600 hover:bg-red-700" : "text-gray-400 hover:text-white"}
@@ -70,6 +81,7 @@ function App() {
         {view === "chat" && <ChatInterface key={refreshKey} sessionId={currentSessionId} onNewSession={setCurrentSessionId} />}
         {view === "history" && <ChatHistory onSelectSession={handleSelectSession} currentSessionId={currentSessionId} onNewChat={handleNewChat} />}
         {view === "images" && <ImageGenerator />}
+        {view === "files" && <FileProcessor />}
         {view === "knowledge" && <KnowledgeManager />}
       </main>
 

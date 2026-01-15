@@ -1,6 +1,9 @@
 import { Router } from "express";
 import { db } from "./db.js";
 import { InyeccionGemini25 } from "./extraccion.js";
+import multer from "multer";
+import mammoth from "mammoth";
+import pdfParse from "pdf-parse-fork";
 
 const router = Router();
 
@@ -954,6 +957,242 @@ router.patch("/api/chat/:id/feedback", async (req, res) => {
   } catch (error) {
     console.error("Error updating feedback:", error);
     res.status(500).json({ error: "Failed to update feedback" });
+  }
+  return;
+});
+
+// Configurar Multer para uploads
+const upload = multer({ 
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 50 * 1024 * 1024 } // 50MB máximo
+});
+
+// Procesar archivo y extraer conocimiento
+router.post("/api/process-file", upload.single("file"), async (req: any, res) => {
+  try {
+    if (!req.file) {
+      res.status(400).json({ error: "No file uploaded" });
+      return;
+    }
+
+    const file = req.file;
+    const fileType = file.originalname.split(".").pop()?.toLowerCase() || "unknown";
+    
+    console.log(`Procesando archivo: ${file.originalname} (${fileType})`);
+    
+    let extractedContent = "";
+    
+    // Extraer contenido según tipo de archivo
+    try {
+      if (fileType === "txt" || fileType === "md") {
+        extractedContent = file.buffer.toString("utf-8");
+      } else if (fileType === "pdf") {
+        const pdfData = await pdfParse(file.buffer);
+        extractedContent = pdfData.text;
+      } else if (fileType === "docx" || fileType === "doc") {
+        const result = await mammoth.extractRawText({ buffer: file.buffer });
+        extractedContent = result.value;
+      } else if (fileType === "json") {
+        const jsonData = JSON.parse(file.buffer.toString("utf-8"));
+        extractedContent = JSON.stringify(jsonData, null, 2);
+      } else if (fileType === "html") {
+        extractedContent = file.buffer.toString("utf-8");
+      } else {
+        res.status(400).json({ error: "Unsupported file type" });
+        return;
+      }
+    } catch (parseError) {
+      console.error("Error parsing file:", parseError);
+      res.status(500).json({ error: "Error parsing file content" });
+      return;
+    }
+
+    // Intentar extraer conocimiento usando Gemini si está online
+    let extractedKnowledge = "";
+    let learnedTopics: string[] = [];
+    let categories: string[] = [];
+    
+    const isOnline = await checkInternetConnection();
+    
+    if (isOnline && extractedContent) {
+      try {
+        const analysisPrompt = `Analiza el siguiente texto educativo y extrae:
+1. Los temas principales tratados (máximo 10)
+2. Las categorías académicas (ej: Matemáticas, Física, Historia, etc.)
+3. Un resumen del conocimiento más importante (máximo 500 palabras)
+
+Texto:
+${extractedContent.substring(0, 10000)}
+
+Responde en formato JSON:
+{
+  "topics": ["tema1", "tema2", ...],
+  "categories": ["categoría1", "categoría2", ...],
+  "summary": "resumen del conocimiento"
+}`;
+
+        const response = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/${InyeccionGemini25.config.model}:generateContent?key=${InyeccionGemini25.config.key}`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              contents: [{
+                parts: [{ text: analysisPrompt }]
+              }]
+            })
+          }
+        );
+
+        if (response.ok) {
+          const data = await response.json();
+          const analysisText = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
+          
+          // Intentar parsear JSON de la respuesta
+          const jsonMatch = analysisText.match(/\{[\s\S]*\}/);
+          if (jsonMatch) {
+            const analysis = JSON.parse(jsonMatch[0]);
+            learnedTopics = analysis.topics || [];
+            categories = analysis.categories || [];
+            extractedKnowledge = analysis.summary || "";
+          }
+        }
+      } catch (geminiError) {
+        console.error("Error analizando con Gemini:", geminiError);
+      }
+    }
+
+    // Guardar archivo procesado
+    const processedFile = {
+      id: crypto.randomUUID(),
+      filename: file.originalname,
+      file_type: fileType,
+      content: extractedContent.substring(0, 100000), // Limitar a 100KB
+      extracted_knowledge: extractedKnowledge || null,
+      processing_date: Date.now(),
+      file_size: file.size,
+      categories: categories.join(",") || null,
+      learned_topics: learnedTopics.join(",") || null
+    };
+
+    await db.insertInto("processed_files").values(processedFile).execute();
+
+    // Actualizar progreso de aprendizaje por cada tema
+    for (const topic of learnedTopics) {
+      const topicId = crypto.randomUUID();
+      const existing = await db
+        .selectFrom("learning_progress")
+        .select(["id", "proficiency_level", "sources_count"])
+        .where("topic", "=", topic)
+        .executeTakeFirst();
+
+      if (existing) {
+        // Actualizar tema existente
+        await db
+          .updateTable("learning_progress")
+          .set({
+            proficiency_level: Math.min(100, (existing.proficiency_level || 0) + 10),
+            sources_count: (existing.sources_count || 0) + 1,
+            last_updated: Date.now(),
+            confidence_score: Math.min(100, (existing.proficiency_level || 0) + 10),
+            related_files: processedFile.id
+          })
+          .where("id", "=", existing.id)
+          .execute();
+      } else {
+        // Crear nuevo registro de progreso
+        await db.insertInto("learning_progress").values({
+          id: topicId,
+          topic,
+          subject_area: categories[0] || "General",
+          proficiency_level: 10,
+          sources_count: 1,
+          last_updated: Date.now(),
+          confidence_score: 10,
+          related_files: processedFile.id
+        }).execute();
+      }
+    }
+
+    // Agregar conocimiento extraído a la base de datos principal
+    if (extractedKnowledge && categories.length > 0 && learnedTopics.length > 0) {
+      for (let i = 0; i < Math.min(learnedTopics.length, 5); i++) {
+        await db.insertInto("conocimientoIA").values({
+          id: crypto.randomUUID(),
+          materia: categories[0] || "General",
+          tema: learnedTopics[i],
+          contenido: extractedKnowledge,
+          grado: "Todos",
+          palabras_clave: learnedTopics.join(","),
+          fecha_agregado: Date.now(),
+          tipo: "aprendido_archivo"
+        }).execute();
+      }
+    }
+
+    console.log(`✅ Archivo procesado: ${file.originalname} - ${learnedTopics.length} temas aprendidos`);
+    
+    res.json({ 
+      success: true, 
+      fileId: processedFile.id,
+      learnedTopics: learnedTopics.length,
+      categories: categories.length
+    });
+  } catch (error) {
+    console.error("Error processing file:", error);
+    res.status(500).json({ error: "Failed to process file" });
+  }
+  return;
+});
+
+// Obtener archivos procesados
+router.get("/api/processed-files", async (req, res) => {
+  try {
+    const files = await db
+      .selectFrom("processed_files")
+      .selectAll()
+      .orderBy("processing_date", "desc")
+      .execute();
+    res.json(files);
+  } catch (error) {
+    console.error("Error fetching processed files:", error);
+    res.status(500).json({ error: "Failed to fetch files" });
+  }
+  return;
+});
+
+// Obtener estadísticas de aprendizaje
+router.get("/api/learning-stats", async (req, res) => {
+  try {
+    const filesCount = await db
+      .selectFrom("processed_files")
+      .select(db.fn.count("id").as("count"))
+      .executeTakeFirst();
+
+    const topicsCount = await db
+      .selectFrom("learning_progress")
+      .select(db.fn.count("id").as("count"))
+      .executeTakeFirst();
+
+    const avgProficiency = await db
+      .selectFrom("learning_progress")
+      .select(db.fn.avg("proficiency_level").as("avg"))
+      .executeTakeFirst();
+
+    const knowledgeCount = await db
+      .selectFrom("conocimientoIA")
+      .select(db.fn.count("id").as("count"))
+      .executeTakeFirst();
+
+    res.json({
+      totalFiles: Number(filesCount?.count || 0),
+      topicsLearned: Number(topicsCount?.count || 0),
+      avgProficiency: Math.round(Number(avgProficiency?.avg || 0)),
+      totalKnowledge: Number(knowledgeCount?.count || 0)
+    });
+  } catch (error) {
+    console.error("Error fetching learning stats:", error);
+    res.status(500).json({ error: "Failed to fetch stats" });
   }
   return;
 });
