@@ -50,8 +50,11 @@ export function FileProcessor() {
     setProcessing(true);
     setProgress(0);
 
-    for (let i = 0; i < files.length; i++) {
-      const file = files[i];
+    console.log(`⚡ Iniciando procesamiento hiper-rápido de ${files.length} archivos...`);
+    const startTime = Date.now();
+
+    // Procesamiento paralelo ultra-rápido
+    const promises = files.map(async (file, index) => {
       const formData = new FormData();
       formData.append("file", file);
 
@@ -62,14 +65,20 @@ export function FileProcessor() {
         });
 
         if (response.ok) {
-          console.log(`Archivo procesado: ${file.name}`);
+          const data = await response.json();
+          console.log(`✓ ${file.name} - ${data.processingTime}ms - ${data.learnedTopics} temas`);
         }
       } catch (error) {
-        console.error(`Error procesando ${file.name}:`, error);
+        console.error(`✗ Error en ${file.name}:`, error);
       }
 
-      setProgress(((i + 1) / files.length) * 100);
-    }
+      setProgress(((index + 1) / files.length) * 100);
+    });
+
+    await Promise.all(promises);
+
+    const totalTime = Date.now() - startTime;
+    console.log(`🚀 ${files.length} archivos procesados en ${totalTime}ms (${(totalTime / files.length).toFixed(0)}ms promedio)`);
 
     setProcessing(false);
     setFiles([]);
@@ -145,7 +154,10 @@ export function FileProcessor() {
             Cargar Archivos para Aprendizaje
           </h3>
           <p className="text-gray-400 text-sm">
-            Soporta: PDF, TXT, DOCX, MD, HTML, JSON, ZIP, RAR, TAR, GZ, BZ2, 7Z y carpetas completas
+            ⚡ Procesamiento hiper-rápido sin importar el peso del archivo
+          </p>
+          <p className="text-gray-500 text-xs mt-1">
+            Soporta: PDF, DOCX, TXT, MD, HTML, JSON, ZIP, TAR, GZ, BZ2, 7Z, RAR y todo tipo de código
           </p>
         </div>
 

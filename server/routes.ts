@@ -2,13 +2,12 @@ import { Router } from "express";
 import { db } from "./db.js";
 import { InyeccionGemini25 } from "./extraccion.js";
 import multer from "multer";
-import mammoth from "mammoth";
-import pdfParse from "pdf-parse-fork";
-import AdmZip from "adm-zip";
-import { Readable } from "stream";
-import unzipper from "unzipper";
-import tar from "tar-stream";
-import { createGunzip, createBrotliDecompress } from "zlib";
+import { 
+  processIndividualFile, 
+  analyzeContentWithGemini, 
+  saveProcessedFile,
+  checkInternetConnection 
+} from "./fileProcessor.js";
 
 const router = Router();
 
@@ -716,18 +715,7 @@ router.get("/api/generated-images", async (req, res) => {
   return;
 });
 
-// Verificar conectividad a Internet
-async function checkInternetConnection(): Promise<boolean> {
-  try {
-    const response = await fetch("https://www.google.com", {
-      method: "HEAD",
-      signal: AbortSignal.timeout(3000)
-    });
-    return response.ok;
-  } catch {
-    return false;
-  }
-}
+
 
 // Chat con la IA usando Gemini 2.5 (con detección online/offline)
 router.post("/api/chat", async (req, res) => {
@@ -966,151 +954,18 @@ router.patch("/api/chat/:id/feedback", async (req, res) => {
   return;
 });
 
-// Configurar Multer para uploads
+// Configurar Multer para uploads con límite aumentado
 const upload = multer({ 
   storage: multer.memoryStorage(),
-  limits: { fileSize: 50 * 1024 * 1024 } // 50MB máximo
+  limits: { fileSize: 500 * 1024 * 1024 } // 500MB máximo para archivos grandes
 });
 
-// Función para limpiar texto y quitar símbolos innecesarios
-function cleanText(text: string): string {
-  return text
-    // Remover caracteres de control
-    .replace(/[\x00-\x1F\x7F-\x9F]/g, " ")
-    // Remover múltiples espacios
-    .replace(/\s+/g, " ")
-    // Remover símbolos especiales excesivos pero mantener puntuación básica
-    .replace(/[^\w\s.,;:!?¿¡()áéíóúñÁÉÍÓÚÑ-]/g, " ")
-    // Limpiar espacios al inicio y final
-    .trim();
-}
 
-// Función para extraer contenido de archivos comprimidos
-async function extractCompressedFile(buffer: Buffer, filename: string): Promise<string> {
-  let allContent = "";
-  const fileExt = filename.split(".").pop()?.toLowerCase();
-  
-  try {
-    if (fileExt === "zip") {
-      const zip = new AdmZip(buffer);
-      const entries = zip.getEntries();
-      
-      for (const entry of entries) {
-        if (!entry.isDirectory) {
-          const content = entry.getData().toString("utf-8");
-          const cleanedContent = cleanText(content);
-          allContent += `\n[${entry.entryName}]\n${cleanedContent}\n`;
-        }
-      }
-    } else if (fileExt === "tar" || fileExt === "gz" || fileExt === "tgz") {
-      return new Promise((resolve, reject) => {
-        const extract = tar.extract();
-        let content = "";
-        
-        extract.on("entry", (header, stream, next) => {
-          let fileContent = "";
-          stream.on("data", (chunk) => {
-            fileContent += chunk.toString("utf-8");
-          });
-          stream.on("end", () => {
-            const cleanedContent = cleanText(fileContent);
-            content += `\n[${header.name}]\n${cleanedContent}\n`;
-            next();
-          });
-          stream.resume();
-        });
-        
-        extract.on("finish", () => resolve(content));
-        extract.on("error", reject);
-        
-        if (fileExt === "gz" || fileExt === "tgz") {
-          Readable.from(buffer).pipe(createGunzip()).pipe(extract);
-        } else {
-          Readable.from(buffer).pipe(extract);
-        }
-      });
-    } else if (fileExt === "bz2") {
-      // BZ2 simple descompresión
-      return new Promise((resolve, reject) => {
-        let content = "";
-        const stream = Readable.from(buffer);
-        
-        stream.on("data", (chunk) => {
-          content += chunk.toString("utf-8");
-        });
-        stream.on("end", () => resolve(cleanText(content)));
-        stream.on("error", reject);
-      });
-    }
-  } catch (error) {
-    console.error("Error extrayendo archivo comprimido:", error);
-  }
-  
-  return allContent;
-}
 
-// Función mejorada para procesar archivo individual
-async function processIndividualFile(buffer: Buffer, filename: string): Promise<string> {
-  const fileType = filename.split(".").pop()?.toLowerCase() || "unknown";
-  let extractedContent = "";
-  
-  try {
-    // Archivos de texto plano
-    if (["txt", "md", "markdown", "log", "csv", "tsv", "xml", "yaml", "yml", "ini", "conf", "config"].includes(fileType)) {
-      extractedContent = cleanText(buffer.toString("utf-8"));
-    } 
-    // PDF
-    else if (fileType === "pdf") {
-      const pdfData = await pdfParse(buffer);
-      extractedContent = cleanText(pdfData.text);
-    } 
-    // Word
-    else if (["docx", "doc"].includes(fileType)) {
-      const result = await mammoth.extractRawText({ buffer });
-      extractedContent = cleanText(result.value);
-    } 
-    // JSON
-    else if (fileType === "json") {
-      const jsonData = JSON.parse(buffer.toString("utf-8"));
-      extractedContent = cleanText(JSON.stringify(jsonData, null, 2));
-    } 
-    // HTML/HTM
-    else if (["html", "htm"].includes(fileType)) {
-      const htmlContent = buffer.toString("utf-8");
-      // Remover tags HTML pero mantener el texto
-      const textContent = htmlContent.replace(/<[^>]*>/g, " ");
-      extractedContent = cleanText(textContent);
-    }
-    // JavaScript/TypeScript/CSS
-    else if (["js", "jsx", "ts", "tsx", "css", "scss", "sass", "less"].includes(fileType)) {
-      extractedContent = cleanText(buffer.toString("utf-8"));
-    }
-    // Python/Java/C/C++/etc
-    else if (["py", "java", "c", "cpp", "h", "hpp", "cs", "php", "rb", "go", "rs", "swift", "kt"].includes(fileType)) {
-      extractedContent = cleanText(buffer.toString("utf-8"));
-    }
-    // Archivos comprimidos
-    else if (["zip", "tar", "gz", "tgz", "bz2", "7z", "rar"].includes(fileType)) {
-      extractedContent = await extractCompressedFile(buffer, filename);
-    }
-    // Cualquier otro archivo de texto
-    else {
-      try {
-        extractedContent = cleanText(buffer.toString("utf-8"));
-      } catch {
-        extractedContent = `[Archivo binario: ${filename}]`;
-      }
-    }
-  } catch (error) {
-    console.error(`Error procesando ${filename}:`, error);
-    extractedContent = `[Error al procesar: ${filename}]`;
-  }
-  
-  return extractedContent;
-}
-
-// Procesar archivo y extraer conocimiento
+// Procesar archivo con sistema hiper-rápido optimizado
 router.post("/api/process-file", upload.single("file"), async (req: any, res) => {
+  const startTime = Date.now();
+  
   try {
     if (!req.file) {
       res.status(400).json({ error: "No file uploaded" });
@@ -1118,149 +973,31 @@ router.post("/api/process-file", upload.single("file"), async (req: any, res) =>
     }
 
     const file = req.file;
-    const fileType = file.originalname.split(".").pop()?.toLowerCase() || "unknown";
+    console.log(`⚡ Iniciando procesamiento hiper-rápido: ${file.originalname} (${(file.size / 1024).toFixed(1)} KB)`);
     
-    console.log(`Procesando archivo: ${file.originalname} (${fileType})`);
+    // Paso 1: Extracción ultra-rápida de contenido
+    const extractedContent = await processIndividualFile(file.buffer, file.originalname);
+    console.log(`✓ Contenido extraído: ${extractedContent.length} caracteres`);
+
+    // Paso 2: Análisis con Gemini (solo si hay internet)
+    const analysis = await analyzeContentWithGemini(extractedContent);
+    console.log(`✓ Análisis completado: ${analysis.topics.length} temas, ${analysis.categories.length} categorías`);
+
+    // Paso 3: Guardado optimizado en base de datos
+    const processedFile = await saveProcessedFile(file, extractedContent, analysis);
     
-    let extractedContent = "";
-    
-    // Extraer contenido usando la función mejorada
-    extractedContent = await processIndividualFile(file.buffer, file.originalname);
-
-    // Intentar extraer conocimiento usando Gemini si está online
-    let extractedKnowledge = "";
-    let learnedTopics: string[] = [];
-    let categories: string[] = [];
-    
-    const isOnline = await checkInternetConnection();
-    
-    if (isOnline && extractedContent) {
-      try {
-        const analysisPrompt = `Analiza el siguiente contenido y extrae SOLAMENTE lo más relevante y educativo:
-1. Los temas principales (máximo 10, solo lo esencial)
-2. Las categorías académicas pertinentes
-3. Un resumen conciso con el conocimiento clave (máximo 300 palabras, sin símbolos innecesarios ni ruido)
-
-Contenido limpio:
-${extractedContent.substring(0, 15000)}
-
-Responde en formato JSON puro sin markdown:
-{
-  "topics": ["tema1", "tema2"],
-  "categories": ["categoría1"],
-  "summary": "resumen limpio y directo del conocimiento útil"
-}`;
-
-        const response = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/${InyeccionGemini25.config.model}:generateContent?key=${InyeccionGemini25.config.key}`,
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              contents: [{
-                parts: [{ text: analysisPrompt }]
-              }]
-            })
-          }
-        );
-
-        if (response.ok) {
-          const data = await response.json();
-          const analysisText = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
-          
-          // Limpiar respuesta de markdown y parsear JSON
-          const cleanedAnalysis = analysisText.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
-          const jsonMatch = cleanedAnalysis.match(/\{[\s\S]*\}/);
-          if (jsonMatch) {
-            const analysis = JSON.parse(jsonMatch[0]);
-            learnedTopics = analysis.topics || [];
-            categories = analysis.categories || [];
-            extractedKnowledge = cleanText(analysis.summary || "");
-          }
-        }
-      } catch (geminiError) {
-        console.error("Error analizando con Gemini:", geminiError);
-      }
-    }
-
-    // Guardar archivo procesado con contenido limpio
-    const processedFile = {
-      id: crypto.randomUUID(),
-      filename: file.originalname,
-      file_type: fileType,
-      content: cleanText(extractedContent.substring(0, 100000)), // Limitar a 100KB y limpiar
-      extracted_knowledge: extractedKnowledge || null,
-      processing_date: Date.now(),
-      file_size: file.size,
-      categories: categories.join(",") || null,
-      learned_topics: learnedTopics.join(",") || null
-    };
-
-    await db.insertInto("processed_files").values(processedFile).execute();
-
-    // Actualizar progreso de aprendizaje por cada tema
-    for (const topic of learnedTopics) {
-      const topicId = crypto.randomUUID();
-      const existing = await db
-        .selectFrom("learning_progress")
-        .select(["id", "proficiency_level", "sources_count"])
-        .where("topic", "=", topic)
-        .executeTakeFirst();
-
-      if (existing) {
-        // Actualizar tema existente
-        await db
-          .updateTable("learning_progress")
-          .set({
-            proficiency_level: Math.min(100, (existing.proficiency_level || 0) + 10),
-            sources_count: (existing.sources_count || 0) + 1,
-            last_updated: Date.now(),
-            confidence_score: Math.min(100, (existing.proficiency_level || 0) + 10),
-            related_files: processedFile.id
-          })
-          .where("id", "=", existing.id)
-          .execute();
-      } else {
-        // Crear nuevo registro de progreso
-        await db.insertInto("learning_progress").values({
-          id: topicId,
-          topic,
-          subject_area: categories[0] || "General",
-          proficiency_level: 10,
-          sources_count: 1,
-          last_updated: Date.now(),
-          confidence_score: 10,
-          related_files: processedFile.id
-        }).execute();
-      }
-    }
-
-    // Agregar conocimiento extraído a la base de datos principal
-    if (extractedKnowledge && categories.length > 0 && learnedTopics.length > 0) {
-      for (let i = 0; i < Math.min(learnedTopics.length, 5); i++) {
-        await db.insertInto("conocimientoIA").values({
-          id: crypto.randomUUID(),
-          materia: categories[0] || "General",
-          tema: learnedTopics[i],
-          contenido: extractedKnowledge,
-          grado: "Todos",
-          palabras_clave: learnedTopics.join(","),
-          fecha_agregado: Date.now(),
-          tipo: "aprendido_archivo"
-        }).execute();
-      }
-    }
-
-    console.log(`✅ Archivo procesado: ${file.originalname} - ${learnedTopics.length} temas aprendidos`);
+    const totalTime = Date.now() - startTime;
+    console.log(`🚀 Procesamiento COMPLETO: ${file.originalname} en ${totalTime}ms - ${analysis.topics.length} temas aprendidos`);
     
     res.json({ 
       success: true, 
       fileId: processedFile.id,
-      learnedTopics: learnedTopics.length,
-      categories: categories.length
+      learnedTopics: analysis.topics.length,
+      categories: analysis.categories.length,
+      processingTime: totalTime
     });
   } catch (error) {
-    console.error("Error processing file:", error);
+    console.error("Error en procesamiento rápido:", error);
     res.status(500).json({ error: "Failed to process file" });
   }
   return;
