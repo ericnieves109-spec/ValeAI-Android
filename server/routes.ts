@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { db } from "./db.js";
+// import { db } from "./db.js";
 import { InyeccionGemini25 } from "./extraccion.js";
 import multer from "multer";
 import { 
@@ -469,7 +469,7 @@ async function expandKnowledgeBase() {
       tipo: entry.tipo
     }));
     
-    await db.insertInto("conocimientoIA").values(entries).execute();
+    // await db.insertInto("conocimientoIA").values(entries).execute();
     console.log(`Insertadas ${entries.length} entradas (lote ${Math.floor(i/batchSize) + 1})`);
   }
   
@@ -479,7 +479,7 @@ async function expandKnowledgeBase() {
 // Obtener todo el conocimiento
 router.get("/api/knowledge", async (req, res) => {
   try {
-    const knowledge = await db.selectFrom("conocimientoIA").selectAll().execute();
+    const knowledge = // await db.selectFrom("conocimientoIA").selectAll().execute();
     res.json(knowledge);
   } catch (error) {
     console.error("Error fetching knowledge:", error);
@@ -504,7 +504,7 @@ router.post("/api/knowledge", async (req, res) => {
       tipo: tipo || "manual"
     };
 
-    await db.insertInto("conocimientoIA").values(newKnowledge).execute();
+    // await db.insertInto("conocimientoIA").values(newKnowledge).execute();
     res.json(newKnowledge);
   } catch (error) {
     console.error("Error adding knowledge:", error);
@@ -529,7 +529,7 @@ router.post("/api/knowledge/bulk", async (req, res) => {
       tipo: entry.tipo || "manual"
     }));
 
-    await db.insertInto("conocimientoIA").values(knowledgeEntries).execute();
+    // await db.insertInto("conocimientoIA").values(knowledgeEntries).execute();
     res.json({ success: true, count: knowledgeEntries.length });
   } catch (error) {
     console.error("Error adding bulk knowledge:", error);
@@ -541,7 +541,7 @@ router.post("/api/knowledge/bulk", async (req, res) => {
 // Eliminar conocimiento
 router.delete("/api/knowledge/:id", async (req, res) => {
   try {
-    await db.deleteFrom("conocimientoIA").where("id", "=", req.params.id).execute();
+    // await db.deleteFrom("conocimientoIA").where("id", "=", req.params.id).execute();
     res.json({ success: true });
   } catch (error) {
     console.error("Error deleting knowledge:", error);
@@ -553,7 +553,7 @@ router.delete("/api/knowledge/:id", async (req, res) => {
 // Obtener todas las sesiones de chat
 router.get("/api/chat/sessions", async (req, res) => {
   try {
-    const sessions = await db
+    const sessions = // await db
       .selectFrom("chat_sessions")
       .selectAll()
       .orderBy("updated_at", "desc")
@@ -569,7 +569,7 @@ router.get("/api/chat/sessions", async (req, res) => {
 // Obtener mensajes de una sesión
 router.get("/api/chat/sessions/:id/messages", async (req, res) => {
   try {
-    const messages = await db
+    const messages = // await db
       .selectFrom("chat_messages")
       .selectAll()
       .where("session_id", "=", req.params.id)
@@ -586,8 +586,8 @@ router.get("/api/chat/sessions/:id/messages", async (req, res) => {
 // Eliminar sesión de chat
 router.delete("/api/chat/sessions/:id", async (req, res) => {
   try {
-    await db.deleteFrom("chat_messages").where("session_id", "=", req.params.id).execute();
-    await db.deleteFrom("chat_sessions").where("id", "=", req.params.id).execute();
+    // await db.deleteFrom("chat_messages").where("session_id", "=", req.params.id).execute();
+    // await db.deleteFrom("chat_sessions").where("id", "=", req.params.id).execute();
     res.json({ success: true });
   } catch (error) {
     console.error("Error deleting chat session:", error);
@@ -653,7 +653,7 @@ router.post("/api/generate-image", async (req, res) => {
     };
     
     // Guardar en la base de datos
-    await db.insertInto("generated_images").values(generatedImage).execute();
+    // await db.insertInto("generated_images").values(generatedImage).execute();
     
     res.json({ 
       success: true, 
@@ -701,7 +701,7 @@ function generateEducationalSVG(topic: string, relatedTopic?: string): string {
 // Obtener imágenes generadas
 router.get("/api/generated-images", async (req, res) => {
   try {
-    const images = await db
+    const images = // await db
       .selectFrom("generated_images")
       .selectAll()
       .orderBy("created_at", "desc")
@@ -767,7 +767,7 @@ router.post("/api/chat", async (req, res) => {
     }
     
     // Buscar conocimiento relevante en la base de datos local
-    const knowledge = await db
+    const knowledge = // await db
       .selectFrom("conocimientoIA")
       .selectAll()
       .execute();
@@ -869,7 +869,7 @@ Responde de forma clara, educativa y con tu personalidad característica en espa
       currentSessionId = crypto.randomUUID();
       const sessionTitle = message.length > 50 ? message.substring(0, 50) + "..." : message;
       
-      await db.insertInto("chat_sessions").values({
+      // await db.insertInto("chat_sessions").values({
         id: currentSessionId,
         title: sessionTitle,
         created_at: Date.now(),
@@ -878,13 +878,13 @@ Responde de forma clara, educativa y con tu personalidad característica en espa
       }).execute();
     } else {
       // Actualizar sesión existente
-      const session = await db
+      const session = // await db
         .selectFrom("chat_sessions")
         .select("message_count")
         .where("id", "=", currentSessionId)
         .executeTakeFirst();
       
-      await db
+      // await db
         .updateTable("chat_sessions")
         .set({
           updated_at: Date.now(),
@@ -898,7 +898,7 @@ Responde de forma clara, educativa y con tu personalidad característica en espa
     const userMessageId = crypto.randomUUID();
     const assistantMessageId = crypto.randomUUID();
     
-    await db.insertInto("chat_messages").values({
+    // await db.insertInto("chat_messages").values({
       id: userMessageId,
       session_id: currentSessionId,
       type: "user",
@@ -907,7 +907,7 @@ Responde de forma clara, educativa y con tu personalidad característica en espa
       timestamp: Date.now()
     }).execute();
     
-    await db.insertInto("chat_messages").values({
+    // await db.insertInto("chat_messages").values({
       id: assistantMessageId,
       session_id: currentSessionId,
       type: "assistant",
@@ -927,7 +927,7 @@ Responde de forma clara, educativa y con tu personalidad característica en espa
       util: 1
     };
     
-    await db.insertInto("conversaciones").values(conversation).execute();
+    // await db.insertInto("conversaciones").values(conversation).execute();
     
     res.json({ response: aiResponse, conversationId: conversation.id, sessionId: currentSessionId });
   } catch (error) {
@@ -941,7 +941,7 @@ Responde de forma clara, educativa y con tu personalidad característica en espa
 router.patch("/api/chat/:id/feedback", async (req, res) => {
   try {
     const { util } = req.body;
-    await db
+    // await db
       .updateTable("conversaciones")
       .set({ util })
       .where("id", "=", req.params.id)
@@ -1006,7 +1006,7 @@ router.post("/api/process-file", upload.single("file"), async (req: any, res) =>
 // Obtener archivos procesados
 router.get("/api/processed-files", async (req, res) => {
   try {
-    const files = await db
+    const files = // await db
       .selectFrom("processed_files")
       .selectAll()
       .orderBy("processing_date", "desc")
@@ -1022,22 +1022,22 @@ router.get("/api/processed-files", async (req, res) => {
 // Obtener estadísticas de aprendizaje
 router.get("/api/learning-stats", async (req, res) => {
   try {
-    const filesCount = await db
+    const filesCount = // await db
       .selectFrom("processed_files")
       .select(db.fn.count("id").as("count"))
       .executeTakeFirst();
 
-    const topicsCount = await db
+    const topicsCount = // await db
       .selectFrom("learning_progress")
       .select(db.fn.count("id").as("count"))
       .executeTakeFirst();
 
-    const avgProficiency = await db
+    const avgProficiency = // await db
       .selectFrom("learning_progress")
       .select(db.fn.avg("proficiency_level").as("avg"))
       .executeTakeFirst();
 
-    const knowledgeCount = await db
+    const knowledgeCount = // await db
       .selectFrom("conocimientoIA")
       .select(db.fn.count("id").as("count"))
       .executeTakeFirst();

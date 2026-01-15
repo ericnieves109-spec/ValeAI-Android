@@ -1,5 +1,4 @@
 import { Kysely, SqliteDialect } from "kysely";
-import SQLite from "better-sqlite3";
 import path from "path";
 
 const DATA_DIR = process.env.DATA_DIRECTORY || path.join(process.cwd(), "data");
@@ -85,9 +84,7 @@ interface Database {
   learning_progress: LearningProgress;
 }
 
-const sqliteDb = new SQLite(dbPath);
 
-export const db = new Kysely<Database>({
-  dialect: new SqliteDialect({ database: sqliteDb }),
-  log: ["query", "error"]
-});
+//export const db = new Kysely<Database>({
+//  log: ["query", "error"]
+//});

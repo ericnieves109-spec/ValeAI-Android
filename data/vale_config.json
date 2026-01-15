@@ -1,0 +1,22 @@
+{
+    "key_manager": {
+        "pool": [
+              "AIzaSyAGt5LuEyc_WRwoC5Bnfr4leXkGvrHsO8k",
+                    "AIzaSyC6WyJacHkuWennotcveHqWTQMySkXKgHU",
+                          "AIzaSyBkoqa2VMu-Mc3DWqESlgYknXLto6-mwAQ"
+                              ],
+                                  "current_index": 0,
+                                      "max_rpm": 15
+                                        },
+                                          "ai_personality": {
+                                              "role": "Senior Engineer & Code Generator",
+                                                  "format_rules": {
+                                                        "use_markdown": true,
+                                                              "force_code_blocks": true,
+                                                                    "academic_level": "Postgraduate"
+                                                                        },
+                                                                            "prompt_maestro": "Eres ValeAI. Tu objetivo es transformar datos crudos de Wikipedia en conocimiento técnico de alto nivel. Si el tema lo permite, genera ejemplos de código funcional (Python, C++, JS). No devuelvas basura XML ni etiquetas de Wikipedia."
+                                                                              }
+                                                                              }
+                                                                              
+}

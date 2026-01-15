@@ -1,4 +1,4 @@
-import { db } from "./db.js";
+// import { db } from "./db.js";
 import { InyeccionGemini25 } from "./extraccion.js";
 import mammoth from "mammoth";
 import pdfParse from "pdf-parse-fork";
@@ -238,20 +238,20 @@ export async function saveProcessedFile(file: any, extractedContent: string, ana
     learned_topics: analysis.topics.join(",") || null
   };
 
-  await db.insertInto("processed_files").values(processedFile).execute();
+  // await db.insertInto("processed_files").values(processedFile).execute();
 
   // Actualizar progreso de aprendizaje en lotes
   const learningProgressUpdates = [];
   
   for (const topic of analysis.topics) {
-    const existing = await db
+    const existing = // await db
       .selectFrom("learning_progress")
       .select(["id", "proficiency_level", "sources_count"])
       .where("topic", "=", topic)
       .executeTakeFirst();
 
     if (existing) {
-      await db
+      // await db
         .updateTable("learning_progress")
         .set({
           proficiency_level: Math.min(100, (existing.proficiency_level || 0) + 10),
@@ -278,7 +278,7 @@ export async function saveProcessedFile(file: any, extractedContent: string, ana
 
   // Insertar nuevos progresos en lote
   if (learningProgressUpdates.length > 0) {
-    await db.insertInto("learning_progress").values(learningProgressUpdates).execute();
+    // await db.insertInto("learning_progress").values(learningProgressUpdates).execute();
   }
 
   // Agregar conocimiento en lote
@@ -295,7 +295,7 @@ export async function saveProcessedFile(file: any, extractedContent: string, ana
     }));
 
     if (knowledgeEntries.length > 0) {
-      await db.insertInto("conocimientoIA").values(knowledgeEntries).execute();
+      // await db.insertInto("conocimientoIA").values(knowledgeEntries).execute();
     }
   }
 
