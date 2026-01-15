@@ -64,6 +64,112 @@ export function KnowledgeManager() {
     }
   }
 
+  async function handleAddEducationContent() {
+    setLoading(true);
+    try {
+      const educationData = [
+        // Modalidades y Especialidades - Rama Industrial
+        {
+          materia: "Información General",
+          tema: "Modalidades - Rama Industrial",
+          contenido: "La Rama Industrial del colegio ofrece las siguientes especialidades: Mecatrónica (integración de sistemas mecánicos y electrónicos), Sistemas (Programación y Diseño Web), Dibujo Técnico (Diseño Industrial), Electricidad y Electrónica, y Química Industrial. Estas modalidades preparan a los estudiantes para carreras técnicas y profesionales en el sector industrial.",
+          grado: "10",
+          palabras_clave: "modalidades, industrial, mecatrónica, sistemas, programación, diseño web, dibujo técnico, electricidad, electrónica, química industrial"
+        },
+        // Modalidades - Rama de Ciencias y Salud
+        {
+          materia: "Información General",
+          tema: "Modalidades - Rama de Ciencias y Salud",
+          contenido: "La Rama de Ciencias y Salud incluye las modalidades de: Salud (preparación para carreras médicas y de enfermería), Gestión Ambiental (estudio de ecosistemas y conservación), y Ciencias Naturales y Matemáticas (enfoque en biología, química, física y matemáticas avanzadas). Estas modalidades preparan estudiantes para carreras universitarias en ciencias de la salud y ciencias exactas.",
+          grado: "10",
+          palabras_clave: "ciencias, salud, gestión ambiental, ciencias naturales, matemáticas, medicina, biología"
+        },
+        // Modalidades - Rama de Humanidades y Artes
+        {
+          materia: "Información General",
+          tema: "Modalidades - Rama de Humanidades y Artes",
+          contenido: "La Rama de Humanidades y Artes ofrece: Humanidades (Letras y Lenguas con énfasis en literatura, idiomas y comunicación), Educación Artística (especialidades en Música, Artes Plásticas y Danzas), y Educación Física, Recreación y Deporte. Estas modalidades desarrollan habilidades creativas, comunicativas y deportivas.",
+          grado: "10",
+          palabras_clave: "humanidades, artes, letras, lenguas, música, artes plásticas, danzas, educación física, deporte"
+        },
+        // Modalidades - Rama Comercial
+        {
+          materia: "Información General",
+          tema: "Modalidades - Rama Comercial",
+          contenido: "La Rama Comercial del colegio ofrece la modalidad de Comercio con especialización en Gestión Administrativa y Contable. Los estudiantes aprenden sobre contabilidad, administración de empresas, finanzas, marketing y emprendimiento, preparándose para carreras en el sector empresarial y comercial.",
+          grado: "10",
+          palabras_clave: "comercio, gestión administrativa, contabilidad, administración, finanzas, emprendimiento, negocios"
+        },
+        // Área de Matemáticas
+        {
+          materia: "Matemáticas",
+          tema: "Plan de Estudios - Matemáticas",
+          contenido: "El área de Matemáticas incluye las siguientes materias: Álgebra (estudio de ecuaciones, polinomios y funciones), Geometría (figuras, áreas, volúmenes y relaciones espaciales), Trigonometría (funciones trigonométricas y sus aplicaciones), Cálculo (límites, derivadas e integrales) y Estadística (probabilidad, análisis de datos y estadística descriptiva e inferencial).",
+          grado: "9",
+          palabras_clave: "álgebra, geometría, trigonometría, cálculo, estadística, ecuaciones, funciones, probabilidad"
+        },
+        // Área de Lenguaje
+        {
+          materia: "Lenguaje",
+          tema: "Plan de Estudios - Lenguaje",
+          contenido: "El área de Lenguaje comprende: Lengua Castellana (gramática, ortografía, literatura, comprensión lectora y producción textual) e Inglés como segunda lengua (gramática, vocabulario, conversación y comprensión auditiva). En algunas ramas se incluye también Francés como tercera lengua.",
+          grado: "9",
+          palabras_clave: "lengua castellana, inglés, francés, gramática, literatura, idiomas, comprensión lectora"
+        },
+        // Área de Ciencias
+        {
+          materia: "Ciencias",
+          tema: "Plan de Estudios - Ciencias Naturales",
+          contenido: "El área de Ciencias comprende: Biología (estudio de seres vivos, células, ecosistemas, genética y evolución), Química (estructura atómica, enlaces químicos, reacciones, estequiometría y química orgánica) y Física (mecánica, energía, ondas, termodinámica, electricidad y magnetismo).",
+          grado: "9",
+          palabras_clave: "biología, química, física, células, átomos, energía, ecosistemas, reacciones químicas"
+        },
+        // Área de Sociales
+        {
+          materia: "Ciencias Sociales",
+          tema: "Plan de Estudios - Ciencias Sociales",
+          contenido: "El área de Ciencias Sociales incluye: Historia (eventos históricos mundiales y colombianos), Geografía (relieve, clima, recursos naturales, geografía física y humana), Democracia y Constitución, Ciencias Políticas (sistemas de gobierno, participación ciudadana) y Economía (conceptos básicos de economía, microeconomía y macroeconomía).",
+          grado: "9",
+          palabras_clave: "historia, geografía, democracia, política, economía, constitución, sociedad"
+        },
+        // Área Técnica/Tecnológica
+        {
+          materia: "Tecnología",
+          tema: "Plan de Estudios - Tecnología e Informática",
+          contenido: "El área Técnica/Tecnológica incluye: Tecnología (innovación, diseño tecnológico, resolución de problemas) e Informática (programación, ofimática, manejo de software, bases de datos y diseño web). Además, cada modalidad tiene talleres específicos según su especialización (talleres de mecatrónica, programación, diseño, electricidad, etc.).",
+          grado: "9",
+          palabras_clave: "tecnología, informática, programación, diseño web, ofimática, software, talleres técnicos"
+        },
+        // Área de Desarrollo Humano
+        {
+          materia: "Desarrollo Humano",
+          tema: "Plan de Estudios - Desarrollo Humano",
+          contenido: "El área de Desarrollo Humano comprende: Filosofía (pensamiento crítico, corrientes filosóficas, lógica), Ética y Valores (formación moral, principios éticos, valores ciudadanos), Religión (educación religiosa, espiritualidad, valores cristianos) y Educación Física (deporte, actividad física, salud y bienestar).",
+          grado: "9",
+          palabras_clave: "filosofía, ética, valores, religión, educación física, deporte, pensamiento crítico"
+        }
+      ];
+
+      const response = await fetch("/api/knowledge/bulk", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ entries: educationData })
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        console.log(`Added ${result.count} education entries`);
+        alert(`✅ Se agregaron ${result.count} entradas sobre modalidades y materias`);
+        loadKnowledge();
+      }
+    } catch (error) {
+      console.error("Error adding education content:", error);
+      alert("❌ Error al agregar contenido educativo");
+    } finally {
+      setLoading(false);
+    }
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
 
@@ -122,6 +228,14 @@ export function KnowledgeManager() {
         </div>
 
         <div className="flex gap-2">
+          <Button
+            onClick={handleAddEducationContent}
+            disabled={loading}
+            className="bg-green-600 hover:bg-green-700 text-white"
+          >
+            <BookOpen className="w-4 h-4 mr-2" />
+            {loading ? "Cargando..." : "Cargar Plan de Estudios"}
+          </Button>
           <Button
             onClick={handleGeminiLoad}
             disabled={loading}

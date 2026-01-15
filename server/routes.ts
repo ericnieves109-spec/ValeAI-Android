@@ -54,6 +54,31 @@ router.post("/api/knowledge", async (req, res) => {
   return;
 });
 
+// Agregar conocimiento masivo
+router.post("/api/knowledge/bulk", async (req, res) => {
+  try {
+    const { entries } = req.body;
+    
+    const knowledgeEntries = entries.map((entry: any) => ({
+      id: crypto.randomUUID(),
+      materia: entry.materia,
+      tema: entry.tema,
+      contenido: entry.contenido,
+      grado: entry.grado,
+      palabras_clave: entry.palabras_clave,
+      fecha_agregado: Date.now(),
+      tipo: entry.tipo || "manual"
+    }));
+
+    await db.insertInto("conocimientoIA").values(knowledgeEntries).execute();
+    res.json({ success: true, count: knowledgeEntries.length });
+  } catch (error) {
+    console.error("Error adding bulk knowledge:", error);
+    res.status(500).json({ error: "Failed to add bulk knowledge" });
+  }
+  return;
+});
+
 // Eliminar conocimiento
 router.delete("/api/knowledge/:id", async (req, res) => {
   try {
