@@ -385,7 +385,7 @@ export function ChatInterface({ sessionId, onNewSession }: ChatInterfaceProps) {
         </div>
         
         <p className="text-xs text-gray-600 mt-2 text-center">
-          Modo offline - Todo se procesa localmente en tu dispositivo
+          Modo adaptativo: Online (Gemini) | Offline (Base local integrada)
         </p>
       </div>
     </div>

@@ -4,11 +4,12 @@ import { Header } from "./components/Header";
 import { ChatInterface } from "./components/ChatInterface";
 import { KnowledgeManager } from "./components/KnowledgeManager";
 import { ChatHistory } from "./components/ChatHistory";
-import { Settings, MessageSquare, History } from "lucide-react";
+import { ImageGenerator } from "./components/ImageGenerator";
+import { Settings, MessageSquare, History, Image } from "lucide-react";
 import { Button } from "./components/ui/button";
 
 function App() {
-  const [view, setView] = React.useState<"chat" | "knowledge" | "history">("chat");
+  const [view, setView] = React.useState<"chat" | "knowledge" | "history" | "images">("chat");
   const [currentSessionId, setCurrentSessionId] = React.useState<string | null>(null);
   const [refreshKey, setRefreshKey] = React.useState(0);
 
@@ -47,6 +48,14 @@ function App() {
             Historial
           </Button>
           <Button
+            onClick={() => setView("images")}
+            variant={view === "images" ? "default" : "ghost"}
+            className={view === "images" ? "bg-red-600 hover:bg-red-700" : "text-gray-400 hover:text-white"}
+          >
+            <Image className="w-4 h-4 mr-2" />
+            Imágenes IA
+          </Button>
+          <Button
             onClick={() => setView("knowledge")}
             variant={view === "knowledge" ? "default" : "ghost"}
             className={view === "knowledge" ? "bg-red-600 hover:bg-red-700" : "text-gray-400 hover:text-white"}
@@ -60,6 +69,7 @@ function App() {
       <main className="flex-1 py-6">
         {view === "chat" && <ChatInterface key={refreshKey} sessionId={currentSessionId} onNewSession={setCurrentSessionId} />}
         {view === "history" && <ChatHistory onSelectSession={handleSelectSession} currentSessionId={currentSessionId} onNewChat={handleNewChat} />}
+        {view === "images" && <ImageGenerator />}
         {view === "knowledge" && <KnowledgeManager />}
       </main>
 

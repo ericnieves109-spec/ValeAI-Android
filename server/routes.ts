@@ -137,7 +137,97 @@ router.delete("/api/chat/sessions/:id", async (req, res) => {
   return;
 });
 
-// Chat con la IA usando Gemini 2.5
+// Endpoint para generar imágenes con Gemini
+router.post("/api/generate-image", async (req, res) => {
+  try {
+    const { prompt, relatedTopic } = req.body;
+    
+    console.log("Generando imagen con prompt:", prompt);
+    
+    // Verificar conectividad a Internet
+    const isOnline = await checkInternetConnection();
+    
+    if (!isOnline) {
+      res.status(503).json({ error: "Se requiere conexión a Internet para generar imágenes" });
+      return;
+    }
+    
+    // Usar Gemini Imagen para generar
+    const imageResponse = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-001:generateImage?key=${InyeccionGemini25.config.key}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          prompt: prompt,
+          number_of_images: 1,
+          aspect_ratio: "1:1",
+          safety_filter_level: "block_some"
+        })
+      }
+    );
+    
+    const imageData = await imageResponse.json();
+    
+    if (imageData.images && imageData.images.length > 0) {
+      const generatedImage = {
+        id: crypto.randomUUID(),
+        prompt: prompt,
+        image_data: imageData.images[0].image,
+        created_at: Date.now(),
+        related_topic: relatedTopic || null,
+        size: "1024x1024"
+      };
+      
+      // Guardar en la base de datos
+      await db.insertInto("generated_images").values(generatedImage).execute();
+      
+      res.json({ 
+        success: true, 
+        imageId: generatedImage.id,
+        imageData: generatedImage.image_data 
+      });
+    } else {
+      res.status(500).json({ error: "No se pudo generar la imagen" });
+    }
+  } catch (error) {
+    console.error("Error generando imagen:", error);
+    res.status(500).json({ error: "Error en la generación de imagen" });
+  }
+  return;
+});
+
+// Obtener imágenes generadas
+router.get("/api/generated-images", async (req, res) => {
+  try {
+    const images = await db
+      .selectFrom("generated_images")
+      .selectAll()
+      .orderBy("created_at", "desc")
+      .limit(50)
+      .execute();
+    res.json(images);
+  } catch (error) {
+    console.error("Error fetching generated images:", error);
+    res.status(500).json({ error: "Failed to fetch images" });
+  }
+  return;
+});
+
+// Verificar conectividad a Internet
+async function checkInternetConnection(): Promise<boolean> {
+  try {
+    const response = await fetch("https://www.google.com", {
+      method: "HEAD",
+      signal: AbortSignal.timeout(3000)
+    });
+    return response.ok;
+  } catch {
+    return false;
+  }
+}
+
+// Chat con la IA usando Gemini 2.5 (con detección online/offline)
 router.post("/api/chat", async (req, res) => {
   try {
     const { message, imageUrl, sessionId } = req.body;
@@ -197,9 +287,16 @@ router.post("/api/chat", async (req, res) => {
       .map(k => `${k.materia} - ${k.tema}: ${k.contenido}`)
       .join("\n");
     
-    // Usar Gemini 2.5 Flash para generar respuesta
+    // Verificar si hay Internet disponible
+    const isOnline = await checkInternetConnection();
+    
+    // Usar Gemini 2.5 Flash para generar respuesta (solo si hay Internet)
     let aiResponse = "";
     try {
+      if (!isOnline) {
+        throw new Error("Sin conexión a Internet - usando modo offline");
+      }
+      
       const personalidadPrompt = `Eres ValeAI, una asistente académica amigable, entusiasta y motivadora. Tu objetivo es ayudar a estudiantes a aprender de forma clara y comprensible. 
 
 Características de tu personalidad:
@@ -248,13 +345,31 @@ Responde de forma clara, educativa y con tu personalidad característica en espa
       aiResponse = data.candidates?.[0]?.content?.parts?.[0]?.text || 
                    "Hmm, parece que tuve un pequeño problema procesando eso. ¿Podrías intentar preguntármelo de otra forma? 🤔";
     } catch (geminiError) {
-      console.error("Error llamando a Gemini:", geminiError);
+      console.error("Error llamando a Gemini (modo offline activado):", geminiError);
       
-      // Respuesta de fallback con personalidad
-      if (localContext.length > 0) {
-        aiResponse = `¡Encontré algo en mi base de conocimiento local! 📚\n\nBasándome en lo que sé sobre "${message}", aquí está la información:\n\n${localContext.substring(0, 500)}...\n\n¿Te ayuda esto? Si necesitas más detalles, pregúntame específicamente. 😊`;
+      // MODO OFFLINE - Buscar en conocimiento local
+      const searchTerms = message.toLowerCase().split(" ");
+      const relevantKnowledge = knowledge.filter(k => 
+        searchTerms.some(term => 
+          k.materia.toLowerCase().includes(term) ||
+          k.tema.toLowerCase().includes(term) ||
+          k.contenido.toLowerCase().includes(term) ||
+          k.palabras_clave.toLowerCase().includes(term)
+        )
+      );
+      
+      if (relevantKnowledge.length > 0) {
+        // Construir respuesta desde base de conocimiento local
+        const topResults = relevantKnowledge.slice(0, 3);
+        aiResponse = `📚 **Modo Offline Activado**\n\nEncontré información relevante en mi base de conocimiento:\n\n`;
+        
+        topResults.forEach((k, idx) => {
+          aiResponse += `**${idx + 1}. ${k.tema}** (${k.materia})\n${k.contenido}\n\n`;
+        });
+        
+        aiResponse += `💡 *Nota: Estoy trabajando en modo offline usando mi conocimiento integrado. Para respuestas más detalladas, conecta a Internet.*`;
       } else {
-        aiResponse = `Parece que aún no tengo información sobre "${message}" en mi base de datos. 😅\n\nPero hey, ¡podemos agregarlo juntos! Ve al Gestor de Conocimiento y añade contenido sobre este tema. Así podré ayudarte mejor la próxima vez. 💪`;
+        aiResponse = `🔌 **Modo Offline**\n\nNo encontré información específica sobre "${message}" en mi base de conocimiento local.\n\nPuedes:\n• Conectarte a Internet para obtener información actualizada\n• Agregar este contenido manualmente en el Gestor de Conocimiento\n• Reformular tu pregunta con términos más generales\n\n💪 Estoy aquí para ayudarte cuando tengas conexión.`;
       }
     }
     

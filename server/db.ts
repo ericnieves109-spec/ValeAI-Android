@@ -43,11 +43,21 @@ interface ChatMessage {
   timestamp: number;
 }
 
+interface GeneratedImage {
+  id: string;
+  prompt: string;
+  image_data: string;
+  created_at: number;
+  related_topic: string | null;
+  size: string;
+}
+
 interface Database {
   conocimientoIA: ConocimientoIA;
   conversaciones: Conversacion;
   chat_sessions: ChatSession;
   chat_messages: ChatMessage;
+  generated_images: GeneratedImage;
 }
 
 const sqliteDb = new SQLite(dbPath);
