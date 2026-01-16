@@ -11,7 +11,7 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
-      - name: Parche Maestro (Archivos Faltantes)
+      - name: Parche Maestro V2
         run: |
           # 1. Localizar carpeta
           ANDROID_DIR=$(find . -name "gradlew" -printf '%h\n' | head -n 1)
@@ -20,11 +20,11 @@ jobs:
           # 2. Crear carpetas necesarias
           mkdir -p capacitor-cordova-android-plugins
           
-          # 3. Crear el archivo de Google Falso (esto arregla tu error actual)
+          # 3. Crear el archivo de Google Falso
           echo '{"project_info":{"project_number":"0","project_id":"vale-ai","storage_bucket":"vale.appspot.com"},"client":[{"client_info":{"mobilesdk_app_id":"1:0:android:0","android_client_info":{"package_name":"com.vale.ai"}},"api_key":[{"current_key":"false_key"}]}]}' > app/google-services.json
           
-          # 4. Crear archivos de Capacitor que faltan
-          echo 'ext = []' > capacitor-cordova-android-plugins/cordova.variables.gradle
+          # 4. ARCHIVO CORREGIDO: Esto evita el error de la captura anterior
+          echo '// Archivo corregido' > capacitor-cordova-android-plugins/cordova.variables.gradle
           echo 'apply plugin: "com.android.library"' > capacitor-cordova-android-plugins/build.gradle
 
       - name: Construcción Forzada
@@ -32,7 +32,6 @@ jobs:
           ANDROID_DIR=$(find . -name "gradlew" -printf '%h\n' | head -n 1)
           cd "$ANDROID_DIR"
           chmod +x gradlew
-          # Usamos --continue para que no se rinda ante advertencias
           ./gradlew assembleDebug -x lint -x test
 
       - name: Upload APK
