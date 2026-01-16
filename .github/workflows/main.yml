@@ -11,21 +11,26 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
-      - name: Parche Maestro V2
+      - name: Parche Maestro V3 (Configuración SDK)
         run: |
-          # 1. Localizar carpeta
           ANDROID_DIR=$(find . -name "gradlew" -printf '%h\n' | head -n 1)
           cd "$ANDROID_DIR"
           
-          # 2. Crear carpetas necesarias
           mkdir -p capacitor-cordova-android-plugins
           
-          # 3. Crear el archivo de Google Falso
+          # 1. Creamos el Google Services necesario
           echo '{"project_info":{"project_number":"0","project_id":"vale-ai","storage_bucket":"vale.appspot.com"},"client":[{"client_info":{"mobilesdk_app_id":"1:0:android:0","android_client_info":{"package_name":"com.vale.ai"}},"api_key":[{"current_key":"false_key"}]}]}' > app/google-services.json
           
-          # 4. ARCHIVO CORREGIDO: Esto evita el error de la captura anterior
-          echo '// Archivo corregido' > capacitor-cordova-android-plugins/cordova.variables.gradle
-          echo 'apply plugin: "com.android.library"' > capacitor-cordova-android-plugins/build.gradle
+          # 2. Arreglamos el error de cordova.variables (limpio)
+          echo "" > capacitor-cordova-android-plugins/cordova.variables.gradle
+          
+          # 3. FIX DEFINITIVO: Le damos el compileSdk que pidió en la captura
+          echo 'apply plugin: "com.android.library"
+          android {
+              compileSdk 34
+              namespace "ca.capacitor.cordova.plugins"
+              defaultConfig { minSdk 22 }
+          }' > capacitor-cordova-android-plugins/build.gradle
 
       - name: Construcción Forzada
         run: |
