@@ -10,12 +10,15 @@ jobs:
         with:
           java-version: '17'
           distribution: 'temurin'
-      - name: Forzar Construcción Limpia
+      - name: Localizar y Construir
         run: |
-          cd androide
+          # Busca el archivo gradlew en cualquier carpeta y entra ahí
+          GRADLE_PATH=$(find . -name "gradlew" | head -n 1)
+          GRADLE_DIR=$(dirname "$GRADLE_PATH")
+          echo "Construyendo en: $GRADLE_DIR"
+          cd "$GRADLE_DIR"
           chmod +x gradlew
-          # Saltamos las verificaciones de plugins que fallaron
-          ./gradlew assembleDebug -x lint -x test --stacktrace
+          ./gradlew assembleDebug -x lint -x test
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
