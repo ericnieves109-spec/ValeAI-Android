@@ -5,44 +5,42 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      
       - name: Set up JDK 21
         uses: actions/setup-java@v4
         with:
           java-version: '21'
           distribution: 'temurin'
 
-      - name: Reconfiguración Total e Inyección
+      - name: Cirugía de Código y Limpieza
         run: |
-          # 1. Encontrar la carpeta de Android
           ANDROID_DIR=$(find . -name "gradlew" -printf '%h\n' | head -n 1)
           
-          # 2. REPARACIÓN CRÍTICA: Reescribir el capacitor.config.json desde cero
-          # Esto elimina para siempre el error de ERR_CONNECTION_REFUSED
+          # 1. BORRADO TOTAL de configuraciones problemáticas
+          rm -f capacitor.config.json
+          rm -f capacitor.config.ts
+          
+          # 2. CREACIÓN de una configuración limpia que prohíbe el localhost
           cat <<EOF > capacitor.config.json
           {
             "appId": "com.vale.ai",
             "appName": "ValeAI",
             "webDir": "dist",
-            "bundledWebRuntime": false,
-            "server": {
-              "androidScheme": "https",
-              "cleartext": true
-            }
+            "server": { "androidScheme": "https" }
           }
           EOF
 
-          # 3. Mover los archivos de la interfaz al corazón de la APK
+          # 3. INYECCIÓN de la interfaz en la ruta raíz de Android
+          # Esto asegura que los archivos estén donde Gradle los busca
           mkdir -p "$ANDROID_DIR/app/src/main/assets/public"
           cp -r dist/* "$ANDROID_DIR/app/src/main/assets/public/"
 
-          # 4. Parches de plugins y Google Services
+          # 4. PARCHE de emergencia para plugins
           cd "$ANDROID_DIR"
           mkdir -p capacitor-cordova-android-plugins
-          echo '{"project_info":{"project_number":"0","project_id":"vale-ai"},"client":[{"client_info":{"mobilesdk_app_id":"1:0:android:0","android_client_info":{"package_name":"com.vale.ai"}},"api_key":[{"current_key":"false"}]}]}' > app/google-services.json
           echo "" > capacitor-cordova-android-plugins/cordova.variables.gradle
           echo 'apply plugin: "com.android.library"
           android { compileSdk 34; namespace "ca.capacitor.cordova.plugins"; defaultConfig { minSdk 22 } }' > capacitor-cordova-android-plugins/build.gradle
+          echo '{"project_info":{"project_number":"0","project_id":"v"},"client":[{"client_info":{"mobilesdk_app_id":"1:0:android:0","android_client_info":{"package_name":"com.vale.ai"}},"api_key":[{"current_key":"0"}]}]}' > app/google-services.json
 
       - name: Construcción Forzada
         run: |
@@ -54,5 +52,5 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: ValeAI-Instalable
+          name: ValeAI-Rescate
           path: "**/*.apk"
