@@ -12,11 +12,12 @@ jobs:
           distribution: 'temurin'
       - name: Build with Gradle
         run: |
-          cd androide
+          cd ./androide
           chmod +x gradlew
           ./gradlew assembleDebug
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: ValeAI-debug
-          path: androide/app/build/outputs/apk/debug/app-debug.apk
+          path: ./androide/app/build/outputs/apk/debug/app-debug.apk
+
