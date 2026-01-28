@@ -1,22 +1,39 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>ValeAI - Búnker</title>
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self' https:; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline';" />
-    <style>
-        body { background: #000; color: #ff0000; font-family: monospace; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; }
-        .bunker { border: 2px solid #ff0000; padding: 20px; text-align: center; box-shadow: 0 0 15px #f00; border-radius: 10px; }
-        .btn { background: #ff0000; color: #000; border: none; padding: 10px 20px; margin-top: 20px; cursor: pointer; font-weight: bold; }
-    </style>
-</head>
-<body>
-    <div class="bunker">
-        <h1>VALE AI ACTIVADA</h1>
-        <p>Cerebro Nivel 130 detectado en Samsung A36 5G</p>
-        <div id="status">ESTADO: LISTO PARA EL APARTAMENTO</div>
-        <button class="btn" onclick="alert('Iniciando protocolos de ahorro...')">ACCESO MANUAL</button>
-    </div>
-</body>
+<!DOCTYPE html> 
+<html lang="es"> 
+<head> 
+    <meta charset="UTF-8" /> 
+    <meta name="viewport" content="width=ancho-del-dispositivo, escala-inicial=1.0" /> 
+    <title>ValeAI - Búnker</title> 
+    <meta http-equiv="Política-de-Seguridad-del-Contenido" content="origen-predeterminado 'self' https:; origen-del-script 'self'; origen-del-estilo 'self' 'inseguro-en-línea';" /> 
+    <style> 
+        :root { --red: #ff0000; --bg: #000; --glass: rgba(20, 0, 0, 0.8); } 
+        html, cuerpo { altura: 100%; margen: 0; relleno: 0; } 
+        cuerpo { fondo: var(--bg); color: var(--red); font-family: monospace, 'Courier New', monospace; display: flex; align-items: center; justify-content: center; } 
+        .bunker { border: 2px solid var(--red); padding: 20px; text-align: center; box-shadow: 0 0 15px rgba(255,0,0,0.2); border-radius: 10px; max-width: 420px; width: 90%; } 
+        .bunker h1 { margin: 0 0 8px 0; font-size: 1.4rem; letter-spacing: 1px; } 
+        .bunker p { margin: 0; font-size: 0.95rem; color: #ffb3b3; } 
+        #status { margin-top: 12px; font-weight: bold; color: #fff; fondo: rgba(255,0,0,0.08); relleno: 6px 8px; radio del borde: 6px; } 
+        .btn { fondo: var(--rojo); color: #000; borde: ninguno; relleno: 10px 20px; margen superior: 18px; cursor: puntero; peso de fuente: negrita; radio del borde: 6px; } 
+    </style> 
+</head> 
+<body> 
+    <main class="bunker" role="main" aria-labelledby="title"> 
+        <h1 id="title">VALE AI ACTIVADA</h1> 
+        <p>Cerebro nivel 130 detectado en Samsung A36 5G</p> 
+        <div id="status" aria-live="polite">ESTADO: LISTO PARA EL APARTAMENTO</div> 
+        <button class="btn" id="accessBtn" aria-label="Acceso manual a ValeAI">ACCESO MANUAL</button> 
+    </main>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => { 
+            const btn = document.getElementById('accessBtn'); 
+            const status = document.getElementById('status');
+            if (btn) { 
+                btn.addEventListener('click', () => { 
+                    alert('Iniciando protocolos de ahorro...'); 
+                    if (status) status.textContent = 'ESTADO: PROTOCOLOS INICIADOS'; 
+                }); 
+            } 
+        });
+    </script>
+</body> 
 </html>
