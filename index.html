@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VALE AI - BÚNKER DE DATOS</title>
+    <style>
+        :root { --red: #ff0000; --bg: #000; --glass: rgba(20, 0, 0, 0.8); }
+        body { background: var(--bg); color: var(--red); font-family: 'Courier New', monospace; margin: 0; padding: 20px; overflow-x: hidden; }
+        .bunker-frame { border: 2px solid var(--red); border-radius: 15px; padding: 20px; box-shadow: 0 0 20px rgba(255, 0, 0, 0.3); background: var(--glass); }
+        .header { text-align: center; border-bottom: 1px solid var(--red); margin-bottom: 20px; padding-bottom: 10px; }
+        .stats { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 0.8em; margin-bottom: 20px; }
+        .btn-active { background: var(--red); color: #000; border: none; padding: 12px; border-radius: 5px; width: 100%; font-weight: bold; cursor: pointer; }
+        #log { font-size: 0.7em; height: 100px; overflow-y: auto; background: #050000; padding: 10px; border: 1px solid #300; }
+    </style>
+</head>
+<body>
+    <div class="bunker-frame">
+        <div class="header">
+            <h1>VALE AI v2.5</h1>
+            <small>CEREBRO NIVEL 130 ACTIVADO</small>
+        </div>
+        <div class="stats">
+            <div>ESTADO: <span style="color: #0f0;">SISTEMA OK</span></div>
+            <div>OBJETIVO: APTO 18M</div>
+        </div>
+        <div id="log">» Inicializando búnker de datos local...<br>» Conexión GitHub establecida.</div>
+        <br>
+        <button class="btn-active" onclick="alert('Búnker Sincronizado')">ACCEDER A CONOCIMIENTO IA</button>
+    </div>
+</body>
+</html>
